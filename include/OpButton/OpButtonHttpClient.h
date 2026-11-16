@@ -35,6 +35,7 @@ namespace OpButton
         OpButtonString m_basePath;
         bool m_secure;
         OpButtonString m_apiToken;
+        OpButtonString m_runId;
 
         void * m_hSession; // HINTERNET
         void * m_hConnect; // HINTERNET

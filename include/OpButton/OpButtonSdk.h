@@ -19,7 +19,7 @@ namespace OpButton
         ~OpButtonSdk();
 
     public:
-        static constexpr const char * VERSION = "1.0.44";
+        static constexpr const char * VERSION = "1.0.45";
 
     public:
         static void initialize( const OpButtonConfig & _config );

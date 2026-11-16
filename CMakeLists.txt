@@ -27,7 +27,7 @@ endif()
 add_library(opbutton SHARED ${OPBUTTON_SOURCES} ${OPBUTTON_HEADERS})
 target_include_directories(opbutton PUBLIC include)
 target_include_directories(opbutton PRIVATE src)
-target_link_libraries(opbutton PRIVATE wininet psapi)
+target_link_libraries(opbutton PRIVATE wininet psapi ole32)
 
 if(NOT OPBUTTON_ENABLE_LIVEKIT)
     target_compile_definitions(opbutton PRIVATE OPBUTTON_NO_LIVEKIT)

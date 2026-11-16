@@ -4,12 +4,36 @@
 
 #include "OpButtonWin32.h"
 #include <wininet.h>
+#include <objbase.h>
 
 #include <cstdlib>
 #include <cstring>
 
 namespace OpButton
 {
+    //////////////////////////////////////////////////////////////////////////
+    static OpButtonString createRunId()
+    {
+        GUID guid;
+        if( FAILED( CoCreateGuid( &guid ) ) )
+        {
+            throw OpButtonException( "Failed to generate SDK run ID" );
+        }
+
+        wchar_t value[39];
+        if( StringFromGUID2( guid, value, 39 ) != 39 )
+        {
+            throw OpButtonException( "Failed to format SDK run ID" );
+        }
+
+        OpButtonString result;
+        result.reserve( 36 );
+        for( size_t i = 1; i != 37; ++i )
+        {
+            result.push_back( static_cast<char>( value[i] ) );
+        }
+        return result;
+    }
 
     //////////////////////////////////////////////////////////////////////////
     static void parseUrl( const OpButtonString & _url, OpButtonString & _host, int & _port, OpButtonString & _basePath, bool & _secure )
@@ -65,6 +89,7 @@ namespace OpButton
         : m_port( 80 )
         , m_secure( false )
         , m_apiToken( _apiToken )
+        , m_runId( createRunId() )
         , m_hSession( nullptr )
         , m_hConnect( nullptr )
     {
@@ -196,7 +221,10 @@ namespace OpButton
     //////////////////////////////////////////////////////////////////////////
     OpButtonConnectResponse OpButtonHttpClient::connect( const OpButtonString & _deviceId, const OpButtonString & _deviceName, const OpButtonMap<OpButtonString, OpButtonJson> & _sessionAttributes )
     {
-        OpButtonJson body = OpButtonJson::object().put( "device_id", OpButtonJson( _deviceId ) ).put( "device_name", OpButtonJson( _deviceName ) );
+        OpButtonJson body = OpButtonJson::object()
+            .put( "device_id", OpButtonJson( _deviceId ) )
+            .put( "device_name", OpButtonJson( _deviceName ) )
+            .put( "run_id", OpButtonJson( m_runId ) );
 
         if( _sessionAttributes.empty() == false )
         {
@@ -215,7 +243,7 @@ namespace OpButton
     //////////////////////////////////////////////////////////////////////////
     OpButtonConnectResponse OpButtonHttpClient::pollStatus( const OpButtonString & _requestId )
     {
-        OpButtonJson resp = this->executeRequest_( "GET", "/api/client/poll-status/" + _requestId, "X-Api-Token", m_apiToken, "" );
+        OpButtonJson resp = this->executeRequest_( "GET", "/api/client/poll-status/" + _requestId + "?run_id=" + m_runId, "X-Api-Token", m_apiToken, "" );
         return OpButtonConnectResponse::fromJson( resp );
     }
 
