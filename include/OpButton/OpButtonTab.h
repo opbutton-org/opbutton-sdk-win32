@@ -11,11 +11,12 @@ namespace OpButton
         : public OpButtonRefCounted
     {
     public:
-        OpButtonTab( OpButtonUI & _ui, const OpButtonString & _title );
+        OpButtonTab( OpButtonUI & _ui, const OpButtonString & _id );
         ~OpButtonTab() override;
 
     public:
         OpButtonTab & setId( const OpButtonString & _id );
+        OpButtonTab & setName( const OpButtonString & _name );
 
         OpButtonLayout & vertical();
         OpButtonLayout & horizontal();

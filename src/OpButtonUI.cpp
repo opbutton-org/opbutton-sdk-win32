@@ -33,15 +33,15 @@ namespace OpButton
     }
 
     //////////////////////////////////////////////////////////////////////////
-    OpButtonTab & OpButtonUI::addTab( const OpButtonString & _title )
+    OpButtonTab & OpButtonUI::addTab( const OpButtonString & _id )
     {
-        OpButtonIntrusivePtr<OpButtonTab> tab( new OpButtonTab( *this, _title ) );
+        OpButtonIntrusivePtr<OpButtonTab> tab( new OpButtonTab( *this, _id ) );
         OpButtonIntrusivePtr<OpButtonTab> previous;
         {
             std::lock_guard<OpButtonMutex> lock( m_tabMutex );
             for( OpButtonIntrusivePtr<OpButtonTab> & current : m_tabs )
             {
-                if( current->title() != _title )
+                if( current->id() != _id )
                 {
                     continue;
                 }
@@ -55,6 +55,28 @@ namespace OpButton
             }
             ++m_revision;
         }
+        return *tab;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonTab & OpButtonUI::getOrCreateTab( const OpButtonString & _id )
+    {
+        std::lock_guard<OpButtonMutex> lock( m_tabMutex );
+
+        for( const OpButtonIntrusivePtr<OpButtonTab> & tab : m_tabs )
+        {
+            if( tab->id() != _id )
+            {
+                continue;
+            }
+
+            return *tab;
+        }
+
+        OpButtonIntrusivePtr<OpButtonTab> tab( new OpButtonTab( *this, _id ) );
+        m_tabs.push_back( tab );
+        ++m_revision;
+
         return *tab;
     }
 

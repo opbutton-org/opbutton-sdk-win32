@@ -5,11 +5,11 @@ namespace OpButton
 {
 
     //////////////////////////////////////////////////////////////////////////
-    OpButtonTab::OpButtonTab( OpButtonUI & _ui, const OpButtonString & _title )
+    OpButtonTab::OpButtonTab( OpButtonUI & _ui, const OpButtonString & _id )
         : m_ui( _ui )
-        , m_title( _title )
+        , m_title( _id )
         , m_internalId( _ui.nextId() )
-        , m_id( OpButtonString( "tab-" ) + opbuttonToString( m_internalId ) )
+        , m_id( _id )
     {
     }
 
@@ -55,6 +55,15 @@ namespace OpButton
     OpButtonTab & OpButtonTab::setId( const OpButtonString & _id )
     {
         m_id = _id;
+        return *this;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonTab & OpButtonTab::setName( const OpButtonString & _name )
+    {
+        m_title = _name;
+        m_ui.incrementRevision();
+
         return *this;
     }
 

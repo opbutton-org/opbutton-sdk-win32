@@ -31,7 +31,7 @@ else()
     target_compile_options(opbutton_ui_tests PRIVATE -Wall -Wextra -Werror)
 endif()
 
-foreach(CASE remove add replace state lifetime destroy raw exception ids concurrent)
+foreach(CASE remove add replace state lifetime destroy raw exception ids tabs concurrent)
     add_test(NAME ui_${CASE} COMMAND opbutton_ui_tests ${CASE})
     set_tests_properties(ui_${CASE} PROPERTIES TIMEOUT 10)
 endforeach()

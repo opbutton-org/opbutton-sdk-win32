@@ -21,7 +21,8 @@ namespace OpButton
         int nextId();
 
         // Tab management
-        OpButtonTab & addTab( const OpButtonString & _title );
+        OpButtonTab & addTab( const OpButtonString & _id );
+        OpButtonTab & getOrCreateTab( const OpButtonString & _id );
         OpButtonTab * getTab( const OpButtonString & _id );
         void removeTab( const OpButtonString & _id );
 

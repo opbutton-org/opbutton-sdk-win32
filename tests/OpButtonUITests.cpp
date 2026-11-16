@@ -227,16 +227,46 @@ namespace
         check( ui.dispatchAction( actionFor( 2 ) ), "registry stayed locked after exception" );
     }
 
-    void generatedTabIds()
+    void tabIds()
     {
         OpButtonUI ui;
         for( int index = 0; index < 100; ++index )
         {
             OpButtonString title = opbuttonToString( index );
             auto & tab = ui.addTab( title );
-            OpButtonString expected = OpButtonString( "tab-" ) + opbuttonToString( tab.internalId() );
-            check( tab.id() == expected, "tab ID used an uninitialized internal ID" );
+            check( tab.id() == title, "tab did not use the supplied public ID" );
+            check( ui.getTab( title ) == &tab, "tab could not be found by its supplied ID" );
         }
+    }
+
+    void tabIdentity()
+    {
+        OpButtonUI ui;
+        OpButtonTab & tab = ui.getOrCreateTab( "controls" );
+        check( tab.title() == "controls", "default name did not match the ID" );
+        int calls = 0;
+        OpButtonButton & button = tab.vertical().addButton( "Run" );
+        int widgetId = button.internalId();
+        button.onClick( OpButtonWidgetCallbackFunc( [&]( const OpButtonAction & ) { ++calls; } ) );
+        int revision = ui.getRevision();
+
+        tab.setName( "Game controls" );
+        check( ui.getRevision() > revision, "renaming did not invalidate the UI" );
+        revision = ui.getRevision();
+        check( &ui.getOrCreateTab( "controls" ) == &tab, "lookup replaced the existing tab" );
+        check( ui.getRevision() == revision, "lookup changed the UI revision" );
+        check( tab.toJson().optString( "title" ) == "Game controls", "display name was not serialized" );
+        check( ui.dispatchAction( actionFor( widgetId ) ), "lookup discarded the existing callback" );
+        check( calls == 1, "existing callback was not called" );
+
+        ui.getOrCreateTab( "other" ).setName( "Game controls" );
+        check( ui.toJson().get( "tabs" ).length() == 2, "equal names merged distinct IDs" );
+        ui.addTab( "controls" );
+        check( ui.toJson().get( "tabs" ).length() == 2, "replacement matched the display name instead of the ID" );
+        check( ui.dispatchAction( actionFor( widgetId ) ) == false, "replacement retained the old callback" );
+        ui.removeTab( "controls" );
+        check( ui.getTab( "controls" ) == nullptr, "removal did not use the public ID" );
+        check( ui.getTab( "other" ) != nullptr, "removal affected a tab with the same name" );
     }
 
     void concurrentDispatch()
@@ -327,7 +357,11 @@ int main( int argc, char ** argv )
         }
         else if( name == "ids" )
         {
-            generatedTabIds();
+            tabIds();
+        }
+        else if( name == "tabs" )
+        {
+            tabIdentity();
         }
         else if( name == "concurrent" )
         {

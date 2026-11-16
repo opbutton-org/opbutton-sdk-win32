@@ -39,7 +39,7 @@ int main()
 {
     using namespace OpButton;
     OpButtonUI ui;
-    OpButtonTab & tab = ui.addTab( "JSON" ).setId( "json" );
+    OpButtonTab & tab = ui.addTab( "json" ).setName( "JSON" );
     OpButtonJson description = OpButtonJson::parse( R"({"type":"layout","direction":"grid","gap":8,"gridColumns":3,"placement":{"width":"fill","weight":2},"future":{"enabled":true},"children":[{"type":"slider","id":"speed","label":"Speed","min":0.5,"max":3,"step":0.1}]})" );
     OpButtonString received;
     std::weak_ptr<int> lifetime;
