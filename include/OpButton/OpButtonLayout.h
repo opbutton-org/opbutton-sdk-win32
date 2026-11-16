@@ -2,6 +2,7 @@
 
 #include "OpButton/OpButtonJson.h"
 #include "OpButton/OpButtonLayoutChild.h"
+#include "OpButton/OpButtonWidgetCallback.h"
 
 namespace OpButton
 {
@@ -69,6 +70,10 @@ namespace OpButton
         OpButtonJson toJson() const override;
 
     private:
+        friend class OpButtonTab;
+
+        static OpButtonIntrusivePtr<OpButtonLayout> fromJson( OpButtonUI & _ui, const OpButtonJson & _json, const OpButtonJsonCallback & _callback );
+
         OpButtonLayout & setting_( const OpButtonString & _key, const OpButtonJson & _value );
         OpButtonJson m_settings;
         Direction m_direction;

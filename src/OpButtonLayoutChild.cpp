@@ -77,6 +77,11 @@ namespace OpButton
         return this->place_( "alignSelf", OpButtonJson( alignment_( _value ) ) );
     }
 
+    void OpButtonLayoutChild::loadPlacement_( const OpButtonJson & _json )
+    {
+        m_placement = _json.optObject( "placement" );
+    }
+
     OpButtonJson OpButtonLayoutChild::decorate_( OpButtonJson _json ) const
     {
         _json.put( "id", OpButtonJson( m_elementId ) );

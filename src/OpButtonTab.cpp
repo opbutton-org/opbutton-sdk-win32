@@ -30,6 +30,15 @@ namespace OpButton
     }
 
     //////////////////////////////////////////////////////////////////////////
+    OpButtonLayout & OpButtonTab::setJson( const OpButtonJson & _json, const OpButtonJsonCallback & _callback )
+    {
+        OpButtonIntrusivePtr<OpButtonLayout> layout = OpButtonLayout::fromJson( m_ui, _json, _callback );
+        m_layout.swap( layout );
+        m_ui.incrementRevision();
+
+        return *m_layout;
+    }
+    //////////////////////////////////////////////////////////////////////////
     OpButtonJson OpButtonTab::toJson() const
     {
         OpButtonJson json = OpButtonJson::object();
@@ -73,6 +82,13 @@ namespace OpButton
         return m_layout != nullptr;
     }
 
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLayout * OpButtonTab::getLayout() const
+    {
+        OpButtonLayout * layout = m_layout.get();
+
+        return layout;
+    }
     //////////////////////////////////////////////////////////////////////////
     OpButtonTab::~OpButtonTab()
     {

@@ -17,5 +17,6 @@ namespace OpButton
     };
 
     using OpButtonWidgetCallbackFunc = OpButtonFunction<void( const OpButtonAction & )>;
+    using OpButtonJsonCallback = OpButtonFunction<void( const OpButtonString &, const OpButtonAction & )>;
 
 } // namespace OpButton

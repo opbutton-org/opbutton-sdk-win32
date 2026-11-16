@@ -20,11 +20,13 @@ namespace OpButton
         OpButtonLayout & vertical();
         OpButtonLayout & horizontal();
         OpButtonLayout & grid();
+        OpButtonLayout & setJson( const OpButtonJson & _json, const OpButtonJsonCallback & _callback = nullptr );
 
         const OpButtonString & title() const;
         const OpButtonString & id() const;
         int internalId() const;
         bool hasLayout() const;
+        OpButtonLayout * getLayout() const;
 
         OpButtonJson toJson() const;
 

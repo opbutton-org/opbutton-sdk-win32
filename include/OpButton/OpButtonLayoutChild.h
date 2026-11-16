@@ -27,6 +27,7 @@ namespace OpButton
         static double dimension_( double _value, bool _positive = false );
         static const OpButtonString & alignment_( const OpButtonString & _value );
         OpButtonJson decorate_( OpButtonJson _json ) const;
+        void loadPlacement_( const OpButtonJson & _json );
         OpButtonUI & m_ui;
 
     private:

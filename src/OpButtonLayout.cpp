@@ -1,4 +1,5 @@
 #include "OpButton/OpButtonLayout.h"
+#include "OpButtonJsonElement.h"
 #include "OpButton/OpButtonButton.h"
 #include "OpButton/OpButtonInput.h"
 #include "OpButton/OpButtonLabel.h"
@@ -227,6 +228,65 @@ namespace OpButton
     //////////////////////////////////////////////////////////////////////////
     OpButtonLayout::~OpButtonLayout()
     {
+    }
+
+    OpButtonIntrusivePtr<OpButtonLayout> OpButtonLayout::fromJson( OpButtonUI & _ui, const OpButtonJson & _json, const OpButtonJsonCallback & _callback )
+    {
+        if( _json.optString( "type" ) != "layout" )
+        {
+            throw std::invalid_argument( "OpButton JSON root must be a layout" );
+        }
+
+        OpButtonString direction = _json.optString( "direction" );
+        Direction type;
+
+        if( direction == "vertical" )
+        {
+            type = Direction::VERTICAL;
+        }
+        else if( direction == "horizontal" )
+        {
+            type = Direction::HORIZONTAL;
+        }
+        else if( direction == "grid" )
+        {
+            type = Direction::GRID;
+        }
+        else
+        {
+            throw std::invalid_argument( "Invalid OpButton JSON layout direction" );
+        }
+
+        OpButtonIntrusivePtr<OpButtonLayout> layout( new OpButtonLayout( _ui, type ) );
+        for( const auto & entry : _json.objectEntries() )
+        {
+            if( entry.first == "children" || entry.first == "id" || entry.first == "placement" )
+            {
+                continue;
+            }
+
+            layout->m_settings.put( entry.first, entry.second );
+        }
+        layout->loadPlacement_( _json );
+        OpButtonJson children = _json.get( "children" );
+
+        if( _json.has( "children" ) == true && children.type() != OpButtonJson::TYPE_ARRAY )
+        {
+            throw std::invalid_argument( "OpButton JSON children must be an array" );
+        }
+
+        for( int index = 0; index != children.length(); ++index )
+        {
+            OpButtonIntrusivePtr<OpButtonJsonElement> child( new OpButtonJsonElement( _ui, children.at( index ) ) );
+            layout->m_children.push_back( child );
+        }
+
+        for( const OpButtonIntrusivePtr<OpButtonLayoutChild> & child : layout->m_children )
+        {
+            static_cast<OpButtonJsonElement *>( child.get() )->attach( _callback );
+        }
+
+        return layout;
     }
 
     OpButtonLayout & OpButtonLayout::setting_( const OpButtonString & _key, const OpButtonJson & _value )
