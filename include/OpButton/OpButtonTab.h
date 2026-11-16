@@ -19,6 +19,7 @@ namespace OpButton
 
         OpButtonLayout & vertical();
         OpButtonLayout & horizontal();
+        OpButtonLayout & grid();
 
         const OpButtonString & title() const;
         const OpButtonString & id() const;

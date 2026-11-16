@@ -7,20 +7,13 @@ namespace OpButton
 
     //////////////////////////////////////////////////////////////////////////
     OpButtonWidget::OpButtonWidget( OpButtonUI & _ui, const OpButtonString & _type )
-        : m_ui( _ui )
-        , m_internalId( _ui.nextId() )
-        , m_publicId( _type + OpButtonString( "-" ) + opbuttonToString( m_internalId ) )
+        : OpButtonLayoutChild( _ui )
+        , m_publicId( _type + OpButtonString( "-" ) + opbuttonToString( this->internalId() ) )
         , m_type( _type )
         , m_json( OpButtonJson::object() )
     {
         m_json.put( "type", OpButtonJson( _type ) );
-        m_json.put( "id", OpButtonJson( m_internalId ) );
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-    int OpButtonWidget::internalId() const
-    {
-        return m_internalId;
+        m_json.put( "id", OpButtonJson( this->internalId() ) );
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -44,7 +37,7 @@ namespace OpButton
     //////////////////////////////////////////////////////////////////////////
     OpButtonJson OpButtonWidget::toJson() const
     {
-        return m_json;
+        return this->decorate_( m_json );
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -91,7 +84,7 @@ namespace OpButton
         }
         catch( ... )
         {
-            OpButtonLog::e( "Value provider failed for widget %d", m_internalId );
+            OpButtonLog::e( "Value provider failed for widget %d", this->internalId() );
         }
         return false;
     }
@@ -100,6 +93,6 @@ namespace OpButton
     OpButtonWidget::~OpButtonWidget()
     {
         m_ui.unregisterProvider( this );
-        m_ui.removeCallback( m_internalId );
+        m_ui.removeCallback( this->internalId() );
     }
 } // namespace OpButton

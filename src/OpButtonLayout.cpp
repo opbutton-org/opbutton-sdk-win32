@@ -9,6 +9,9 @@
 #include "OpButton/OpButtonTable.h"
 #include "OpButton/OpButtonTextarea.h"
 #include "OpButton/OpButtonUI.h"
+#include "OpButton/OpButtonRadioGroup.h"
+#include "OpButton/OpButtonSlider.h"
+#include <stdexcept>
 
 namespace OpButton
 {
@@ -17,8 +20,9 @@ namespace OpButton
         : public OpButtonLayoutChild
     {
     public:
-        PaddingElement( double _weight )
-            : m_weight( _weight )
+        PaddingElement( OpButtonUI & _ui, double _weight )
+            : OpButtonLayoutChild( _ui )
+            , m_weight( _weight )
         {
         }
 
@@ -29,7 +33,7 @@ namespace OpButton
     public:
         OpButtonJson toJson() const override
         {
-            return OpButtonJson::object().put( "type", OpButtonJson( "padding" ) ).put( "weight", OpButtonJson( m_weight ) );
+            return this->decorate_( OpButtonJson::object().put( "type", OpButtonJson( "padding" ) ).put( "weight", OpButtonJson( m_weight ) ) );
         }
 
     private:
@@ -41,7 +45,8 @@ namespace OpButton
     {
     public:
         CollapsibleElement( OpButtonUI & _ui, const OpButtonString & _title )
-            : m_title( _title )
+            : OpButtonLayoutChild( _ui )
+            , m_title( _title )
             , m_content( OpButtonIntrusivePtr<OpButtonLayout>( new OpButtonLayout( _ui, Direction::VERTICAL ) ) )
         {
         }
@@ -59,7 +64,7 @@ namespace OpButton
         OpButtonJson toJson() const override
         {
             OpButtonJson contentJson = m_content->toJson();
-            return OpButtonJson::object().put( "type", OpButtonJson( "collapsible" ) ).put( "title", OpButtonJson( m_title ) ).put( "children", contentJson.optArray( "children" ) );
+            return this->decorate_( OpButtonJson::object().put( "type", OpButtonJson( "collapsible" ) ).put( "title", OpButtonJson( m_title ) ).put( "children", OpButtonJson::array().add( contentJson ) ) );
         }
 
     private:
@@ -69,7 +74,8 @@ namespace OpButton
 
     //////////////////////////////////////////////////////////////////////////
     OpButtonLayout::OpButtonLayout( OpButtonUI & _ui, Direction _dir )
-        : m_ui( _ui )
+        : OpButtonLayoutChild( _ui )
+        , m_settings( OpButtonJson::object() )
         , m_direction( _dir )
     {
     }
@@ -107,7 +113,7 @@ namespace OpButton
     //////////////////////////////////////////////////////////////////////////
     OpButtonLayout & OpButtonLayout::addPadding( double _weight )
     {
-        m_children.push_back( OpButtonIntrusivePtr<PaddingElement>( new PaddingElement( _weight ) ) );
+        m_children.push_back( OpButtonIntrusivePtr<PaddingElement>( new PaddingElement( m_ui, _weight ) ) );
         m_ui.incrementRevision();
         return *this;
     }
@@ -205,9 +211,9 @@ namespace OpButton
     //////////////////////////////////////////////////////////////////////////
     OpButtonJson OpButtonLayout::toJson() const
     {
-        OpButtonJson json = OpButtonJson::object();
+        OpButtonJson json = m_settings;
         json.put( "type", OpButtonJson( "layout" ) );
-        json.put( "direction", OpButtonJson( m_direction == Direction::VERTICAL ? "vertical" : "horizontal" ) );
+        json.put( "direction", OpButtonJson( m_direction == Direction::VERTICAL ? "vertical" : m_direction == Direction::HORIZONTAL ? "horizontal" : "grid" ) );
 
         OpButtonJson childrenArr = OpButtonJson::array();
         for( const auto & child : m_children )
@@ -215,11 +221,55 @@ namespace OpButton
             childrenArr.add( child->toJson() );
         }
         json.put( "children", childrenArr );
-        return json;
+        return this->decorate_( json );
     }
 
     //////////////////////////////////////////////////////////////////////////
     OpButtonLayout::~OpButtonLayout()
     {
+    }
+
+    OpButtonLayout & OpButtonLayout::setting_( const OpButtonString & _key, const OpButtonJson & _value )
+    {
+        m_settings.put( _key, _value ); m_ui.incrementRevision(); return *this;
+    }
+    OpButtonLayout & OpButtonLayout::gap( double _pixels ) { return this->setting_( "gap", OpButtonJson( dimension_( _pixels ) ) ); }
+    OpButtonLayout & OpButtonLayout::padding( double _pixels ) { return this->setting_( "padding", OpButtonJson( dimension_( _pixels ) ) ); }
+    OpButtonLayout & OpButtonLayout::align( const OpButtonString & _value ) { return this->setting_( "align", OpButtonJson( alignment_( _value ) ) ); }
+    OpButtonLayout & OpButtonLayout::justify( const OpButtonString & _value )
+    {
+        if( _value != "start" && _value != "center" && _value != "end" && _value != "space-between" ) { throw std::invalid_argument( "Invalid justification" ); }
+        return this->setting_( "justify", OpButtonJson( _value ) );
+    }
+    OpButtonLayout & OpButtonLayout::wrap( bool _value ) { return this->setting_( "wrap", OpButtonJson( _value ) ); }
+    OpButtonLayout & OpButtonLayout::density( const OpButtonString & _value )
+    {
+        if( _value != "compact" && _value != "comfortable" ) { throw std::invalid_argument( "Invalid density" ); }
+        return this->setting_( "density", OpButtonJson( _value ) );
+    }
+    OpButtonLayout & OpButtonLayout::columns( int _value )
+    {
+        if( _value < 1 || _value > 12 ) { throw std::invalid_argument( "Invalid column count" ); }
+        return this->setting_( "gridColumns", OpButtonJson( _value ) );
+    }
+    OpButtonLayout & OpButtonLayout::minCellWidth( double _pixels ) { return this->setting_( "minCellWidth", OpButtonJson( dimension_( _pixels, true ) ) ); }
+    OpButtonLayout & OpButtonLayout::title( const OpButtonString & _value ) { return this->setting_( "title", OpButtonJson( _value ) ); }
+    OpButtonLayout & OpButtonLayout::addGrid()
+    {
+        OpButtonIntrusivePtr<OpButtonLayout> child( new OpButtonLayout( m_ui, Direction::GRID ) );
+        OpButtonLayout * result = child.get(); m_children.push_back( std::move( child ) ); m_ui.incrementRevision(); return *result;
+    }
+    OpButtonLayout & OpButtonLayout::addGroup( const OpButtonString & _title ) { return this->addVertical().title( _title ); }
+
+    OpButtonRadioGroup & OpButtonLayout::addRadioGroup( const OpButtonString & _label )
+    {
+        OpButtonIntrusivePtr<OpButtonRadioGroup> child( new OpButtonRadioGroup( m_ui, _label ) );
+        OpButtonRadioGroup * result = child.get(); m_children.push_back( std::move( child ) ); m_ui.incrementRevision(); return *result;
+    }
+
+    OpButtonSlider & OpButtonLayout::addSlider( const OpButtonString & _label )
+    {
+        OpButtonIntrusivePtr<OpButtonSlider> child( new OpButtonSlider( m_ui, _label ) );
+        OpButtonSlider * result = child.get(); m_children.push_back( std::move( child ) ); m_ui.incrementRevision(); return *result;
     }
 } // namespace OpButton

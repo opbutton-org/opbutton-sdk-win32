@@ -17,6 +17,7 @@ namespace OpButton
     OpButtonLayout & OpButtonTab::vertical()
     {
         m_layout = OpButtonIntrusivePtr<OpButtonLayout>( new OpButtonLayout( m_ui, OpButtonLayout::Direction::VERTICAL ) );
+        m_ui.incrementRevision();
         return *m_layout;
     }
 
@@ -24,6 +25,7 @@ namespace OpButton
     OpButtonLayout & OpButtonTab::horizontal()
     {
         m_layout = OpButtonIntrusivePtr<OpButtonLayout>( new OpButtonLayout( m_ui, OpButtonLayout::Direction::HORIZONTAL ) );
+        m_ui.incrementRevision();
         return *m_layout;
     }
 
@@ -75,4 +77,12 @@ namespace OpButton
     OpButtonTab::~OpButtonTab()
     {
     }
+
+    OpButtonLayout & OpButtonTab::grid()
+    {
+        m_layout = OpButtonIntrusivePtr<OpButtonLayout>( new OpButtonLayout( m_ui, OpButtonLayout::Direction::GRID ) );
+        m_ui.incrementRevision();
+        return *m_layout;
+    }
+
 } // namespace OpButton

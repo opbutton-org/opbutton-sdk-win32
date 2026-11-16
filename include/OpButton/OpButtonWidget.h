@@ -16,7 +16,6 @@ namespace OpButton
         ~OpButtonWidget() override;
 
     public:
-        int internalId() const;
         const OpButtonString & publicId() const;
         void setId( const OpButtonString & _id );
         const OpButtonString & widgetType() const;
@@ -29,10 +28,8 @@ namespace OpButton
         void setProvider_( const OpButtonString & _key, OpButtonValueProvider * _provider );
 
     protected:
-        OpButtonUI & m_ui;
 
     private:
-        int m_internalId;
         OpButtonString m_publicId;
         OpButtonString m_type;
         OpButtonJson m_json;
