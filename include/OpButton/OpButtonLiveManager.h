@@ -16,6 +16,8 @@ namespace OpButton
     public:
         OpButtonLiveManager( OpButtonHttpClient & _httpClient );
         ~OpButtonLiveManager();
+
+    public:
         void setScreenCaptureProvider( OpButtonScreenCaptureProvider * _provider );
         void setOnLiveModeChanged( OpButtonFunction<void( bool, int64_t )> _callback );
 
@@ -34,14 +36,16 @@ namespace OpButton
         {
         public:
             LiveSettings();
-            ~LiveSettings();
             LiveSettings( const OpButtonString & _presetName, int _maxDimension, int _framesPerSecond, int64_t _actionPollIntervalMs );
+            ~LiveSettings();
 
+        public:
             OpButtonString presetName;
             int maxDimension;
             int framesPerSecond;
             int64_t actionPollIntervalMs;
 
+        public:
             static LiveSettings low();
             static LiveSettings balanced();
             static LiveSettings high();
@@ -52,9 +56,10 @@ namespace OpButton
         {
         public:
             PublisherSession();
-            ~PublisherSession();
             PublisherSession( const OpButtonString & _serverUrl, const OpButtonString & _participantToken, const OpButtonString & _roomName, const OpButtonString & _participantIdentity, const OpButtonString & _videoTrackName, const LiveSettings & _settings );
+            ~PublisherSession();
 
+        public:
             OpButtonString serverUrl;
             OpButtonString participantToken;
             OpButtonString roomName;
@@ -63,12 +68,14 @@ namespace OpButton
             LiveSettings settings;
         };
 
+    private:
         void stopLiveRuntime_();
         PublisherSession fetchPublisherSession_( const OpButtonString & _sessionToken, const LiveSettings & _requested );
         void frameCaptureLoop_();
 
         static OpButtonJson buildAck( bool _ok, const OpButtonString & _status );
 
+    private:
         OpButtonHttpClient & m_httpClient;
         OpButtonScreenCaptureProvider * m_captureProvider;
         OpButtonFunction<void( bool, int64_t )> m_onLiveModeChanged;

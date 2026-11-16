@@ -13,7 +13,8 @@
 namespace OpButton
 {
 
-    class OpButtonLayout::PaddingElement : public OpButtonLayoutChild
+    class OpButtonLayout::PaddingElement
+        : public OpButtonLayoutChild
     {
     public:
         PaddingElement( double _weight )
@@ -25,6 +26,7 @@ namespace OpButton
         {
         }
 
+    public:
         OpButtonJson toJson() const override
         {
             return OpButtonJson::object().put( "type", OpButtonJson( "padding" ) ).put( "weight", OpButtonJson( m_weight ) );
@@ -34,7 +36,8 @@ namespace OpButton
         double m_weight;
     };
 
-    class OpButtonLayout::CollapsibleElement : public OpButtonLayoutChild
+    class OpButtonLayout::CollapsibleElement
+        : public OpButtonLayoutChild
     {
     public:
         CollapsibleElement( OpButtonUI & _ui, const OpButtonString & _title )
@@ -47,6 +50,7 @@ namespace OpButton
         {
         }
 
+    public:
         OpButtonLayout & content()
         {
             return *m_content;

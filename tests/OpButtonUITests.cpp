@@ -29,7 +29,8 @@ namespace
         return OpButtonAction( "action", "session", widgetId, OpButtonActionType::CLICK, OpButtonActionStatus::DELIVERED, OpButtonJson::object() );
     }
 
-    struct DestructorAction : public OpButtonRefCounted
+    struct DestructorAction
+        : public OpButtonRefCounted
     {
         explicit DestructorAction( std::function<void()> value )
             : action( std::move( value ) )
@@ -41,10 +42,12 @@ namespace
             action();
         }
 
+    public:
         std::function<void()> action;
     };
 
-    class RawCallback : public OpButtonWidgetCallback
+    class RawCallback
+        : public OpButtonWidgetCallback
     {
     public:
         void onOpButtonWidgetAction( const OpButtonAction & action ) override
@@ -55,6 +58,7 @@ namespace
             }
         }
 
+    public:
         OpButtonWidgetCallbackFunc callback;
     };
 

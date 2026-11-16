@@ -12,6 +12,8 @@ namespace OpButton
     public:
         OpButtonHttpClient( const OpButtonString & _baseUrl, const OpButtonString & _apiToken );
         ~OpButtonHttpClient();
+
+    public:
         void shutdown();
 
         OpButtonConnectResponse connect( const OpButtonString & _deviceId, const OpButtonString & _deviceName, const OpButtonMap<OpButtonString, OpButtonJson> & _sessionAttributes );
@@ -27,6 +29,7 @@ namespace OpButton
     private:
         OpButtonJson executeRequest_( const OpButtonString & _method, const OpButtonString & _path, const OpButtonString & _headerName, const OpButtonString & _headerValue, const OpButtonString & _body );
 
+    private:
         OpButtonString m_host;
         int m_port;
         OpButtonString m_basePath;

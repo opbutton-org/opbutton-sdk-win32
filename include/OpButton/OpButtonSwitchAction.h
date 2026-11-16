@@ -9,6 +9,8 @@ namespace OpButton
     public:
         explicit OpButtonSwitchAction( const OpButtonAction & _action );
         ~OpButtonSwitchAction();
+
+    public:
         bool value() const;
         const OpButtonAction & action() const;
 

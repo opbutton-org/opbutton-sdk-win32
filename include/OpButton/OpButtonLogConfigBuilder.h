@@ -10,6 +10,8 @@ namespace OpButton
     public:
         OpButtonLogConfigBuilder();
         ~OpButtonLogConfigBuilder();
+
+    public:
         OpButtonLogConfigBuilder & setEnabled( bool _v );
         OpButtonLogConfigBuilder & setLogLevel( OpButtonLogLevel _v );
         OpButtonLogConfigBuilder & setBatchSize( int _v );

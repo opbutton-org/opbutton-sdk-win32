@@ -8,11 +8,18 @@ namespace OpButton
     class OpButtonJson
     {
     public:
+        OpButtonJson();
+        OpButtonJson( bool _v );
+        OpButtonJson( int _v );
+        OpButtonJson( int64_t _v );
+        OpButtonJson( double _v );
+        OpButtonJson( const char * _v );
+        OpButtonJson( const OpButtonString & _v );
         OpButtonJson( const OpButtonJson & _other );
         OpButtonJson( OpButtonJson && _other ) noexcept;
-        OpButtonJson & operator=( const OpButtonJson & _other );
-        OpButtonJson & operator=( OpButtonJson && _other ) noexcept;
+        ~OpButtonJson();
 
+    public:
         enum Type
         {
             TYPE_NULL,
@@ -24,14 +31,9 @@ namespace OpButton
             TYPE_OBJECT
         };
 
-        OpButtonJson();
-        ~OpButtonJson();
-        OpButtonJson( bool _v );
-        OpButtonJson( int _v );
-        OpButtonJson( int64_t _v );
-        OpButtonJson( double _v );
-        OpButtonJson( const char * _v );
-        OpButtonJson( const OpButtonString & _v );
+    public:
+        OpButtonJson & operator=( const OpButtonJson & _other );
+        OpButtonJson & operator=( OpButtonJson && _other ) noexcept;
 
         Type type() const;
         bool isNull() const;
@@ -81,20 +83,24 @@ namespace OpButton
         OpButtonVector<OpButtonJson> m_array;
         OpButtonMap<OpButtonString, OpButtonJson> m_object;
 
+    private:
         void writeJson_( OpButtonString & _out ) const;
         static OpButtonString escapeString( const OpButtonString & _s );
 
+    private:
         struct Parser
         {
         public:
             Parser();
-            ~Parser();
             Parser( const char * _data, size_t _pos, size_t _len );
+            ~Parser();
 
+        public:
             const char * data;
             size_t pos;
             size_t len;
 
+        public:
             OpButtonJson parseValue();
             OpButtonJson parseObject();
             OpButtonJson parseArray();

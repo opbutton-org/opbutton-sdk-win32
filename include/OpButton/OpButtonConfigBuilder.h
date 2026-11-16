@@ -7,10 +7,10 @@ namespace OpButton
     class OpButtonConfig::Builder
     {
     public:
+        Builder( const OpButtonString & _baseUrl, const OpButtonString & _apiToken );
         ~Builder();
 
-        Builder( const OpButtonString & _baseUrl, const OpButtonString & _apiToken );
-
+    public:
         Builder & setDeviceId( const OpButtonString & _v );
         Builder & setDeviceName( const OpButtonString & _v );
         Builder & setPollIntervalMs( int64_t _v );

@@ -22,7 +22,8 @@ namespace
         }
     }
 
-    class RecordingAllocator : public OpButtonAllocatorInterface
+    class RecordingAllocator
+        : public OpButtonAllocatorInterface
     {
     public:
         RecordingAllocator()
@@ -36,6 +37,7 @@ namespace
         {
         }
 
+    public:
         void * allocate( size_t _size ) override
         {
             if( fail == true )
@@ -56,12 +58,14 @@ namespace
             std::free( _memory );
         }
 
+    public:
         int allocations;
         int frees;
         bool fail;
     };
 
-    class Object : public OpButtonRefCounted
+    class Object
+        : public OpButtonRefCounted
     {
     public:
         explicit Object( int & _destroyed )
@@ -78,7 +82,8 @@ namespace
         int & m_destroyed;
     };
 
-    class Provider : public OpButtonValueProvider
+    class Provider
+        : public OpButtonValueProvider
     {
     public:
         Provider()
@@ -90,6 +95,7 @@ namespace
         {
         }
 
+    public:
         OpButtonString getValue() override
         {
             ++calls;
@@ -100,6 +106,7 @@ namespace
             return "value";
         }
 
+    public:
         int calls;
         OpButtonFunction<void()> onValue;
     };

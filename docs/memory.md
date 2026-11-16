@@ -30,5 +30,5 @@ Function callbacks are retained during dispatch and released outside registry
 locks. Removing a widget also unregisters its callback and value provider.
 LiveKit's required std::shared_ptr types are confined to its private adapter.
 
-Non-template implementations are in .cpp files. Template definitions are in .inl
-files so client translation units can instantiate them.
+Non-template implementations are in .cpp files. Template definitions remain in
+headers so client translation units can instantiate them.

@@ -17,8 +17,11 @@ namespace OpButton
     {
     public:
         ~OpButtonSdk();
+
+    public:
         static constexpr const char * VERSION = "1.0.38";
 
+    public:
         static void initialize( const OpButtonConfig & _config );
         static bool isInitialized();
         static OpButtonSessionStatus status();

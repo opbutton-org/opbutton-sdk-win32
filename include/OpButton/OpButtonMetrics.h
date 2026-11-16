@@ -13,6 +13,7 @@ namespace OpButton
         OpButtonMetrics();
         ~OpButtonMetrics();
 
+    public:
         void addCollector( OpButtonMetricCollector * _collector );
         void removeCollector( OpButtonMetricCollector * _collector );
 
@@ -25,6 +26,7 @@ namespace OpButton
         bool hasData() const;
         void clear();
 
+    public:
         int64_t sampleIntervalMs = 200;
         int bufferSize = 2000;
         int batchSize = 200;
@@ -32,6 +34,7 @@ namespace OpButton
     private:
         void bufferEntry_( const OpButtonMetricEntry & _entry );
 
+    private:
         OpButtonVector<OpButtonMetricCollector *> m_collectors;
         OpButtonMutex m_collectorMutex;
 

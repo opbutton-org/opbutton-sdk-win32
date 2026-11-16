@@ -9,6 +9,8 @@ namespace OpButton
     public:
         explicit OpButtonTextareaAction( const OpButtonAction & _action );
         ~OpButtonTextareaAction();
+
+    public:
         OpButtonString value() const;
         const OpButtonAction & action() const;
 

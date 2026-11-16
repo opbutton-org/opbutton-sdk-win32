@@ -6,12 +6,14 @@
 
 namespace OpButton
 {
-    class OpButtonSwitch : public OpButtonWidget
+    class OpButtonSwitch
+        : public OpButtonWidget
     {
     public:
         OpButtonSwitch( OpButtonUI & _ui, const OpButtonString & _label );
         ~OpButtonSwitch() override;
 
+    public:
         OpButtonSwitch & defaultValue( bool _v );
 
         OpButtonSwitch & onChange( OpButtonWidgetCallback * _callback );

@@ -10,9 +10,10 @@ namespace OpButton
     {
     public:
         OpButtonAction();
-        ~OpButtonAction();
         OpButtonAction( const OpButtonString & _id, const OpButtonString & _sessionId, int _widgetId, OpButtonActionType _actionType, OpButtonActionStatus _status, const OpButtonJson & _payload );
+        ~OpButtonAction();
 
+    public:
         const OpButtonString & id() const;
         const OpButtonString & sessionId() const;
         int widgetId() const;

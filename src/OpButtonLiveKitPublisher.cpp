@@ -15,7 +15,8 @@ namespace OpButton
 
     // LiveKit's publication API requires shared_ptr for its source and track.
     // These foreign ownership types remain inside the adapter.
-    class OpButtonLiveKitPublisher::State : public OpButtonRefCounted
+    class OpButtonLiveKitPublisher::State
+        : public OpButtonRefCounted
     {
     public:
         State();

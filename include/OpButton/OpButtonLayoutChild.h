@@ -4,12 +4,14 @@
 
 namespace OpButton
 {
-    class OpButtonLayoutChild : public OpButtonRefCounted
+    class OpButtonLayoutChild
+        : public OpButtonRefCounted
     {
     public:
         OpButtonLayoutChild();
         virtual ~OpButtonLayoutChild() override;
 
+    public:
         virtual OpButtonJson toJson() const = 0;
     };
 

@@ -9,6 +9,8 @@ namespace OpButton
     public:
         explicit OpButtonSelectAction( const OpButtonAction & _action );
         ~OpButtonSelectAction();
+
+    public:
         OpButtonString value() const;
         const OpButtonAction & action() const;
 

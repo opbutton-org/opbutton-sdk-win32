@@ -4,11 +4,14 @@
 
 namespace OpButton
 {
-    class OpButtonCallbackFunction : public OpButtonRefCounted
+    class OpButtonCallbackFunction
+        : public OpButtonRefCounted
     {
     public:
         explicit OpButtonCallbackFunction( OpButtonWidgetCallbackFunc _callback );
         ~OpButtonCallbackFunction() override;
+
+    public:
         void invoke( const OpButtonAction & _action );
 
     private:

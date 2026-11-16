@@ -6,12 +6,14 @@
 
 namespace OpButton
 {
-    class OpButtonSelect : public OpButtonWidget
+    class OpButtonSelect
+        : public OpButtonWidget
     {
     public:
         OpButtonSelect( OpButtonUI & _ui, const OpButtonString & _label );
         ~OpButtonSelect() override;
 
+    public:
         OpButtonSelect & options( const OpButtonVector<OpButtonPair<OpButtonString, OpButtonString>> & _opts );
         OpButtonSelect & defaultValue( const OpButtonString & _v );
 

@@ -10,17 +10,21 @@ namespace OpButton
         OpButtonMetricType( const char * _key, const char * _unit, OpButtonMetricAggregation _aggregation );
         ~OpButtonMetricType();
 
+    public:
         const char * key() const;
         const char * unit() const;
         OpButtonMetricAggregation aggregation() const;
 
+    public:
         bool operator==( const OpButtonMetricType & _o ) const;
         bool operator!=( const OpButtonMetricType & _o ) const;
 
+    public:
         static OpButtonMetricType create( const char * _key );
         static OpButtonMetricType create( const char * _key, const char * _unit );
         static OpButtonMetricType create( const char * _key, const char * _unit, OpButtonMetricAggregation _agg );
 
+    public:
         static const OpButtonMetricType FPS;
         static const OpButtonMetricType FRAME_TIME;
         static const OpButtonMetricType MEMORY;

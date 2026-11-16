@@ -10,6 +10,7 @@ namespace OpButton
         OpButtonConnectResponse( const OpButtonString & _requestId, const OpButtonString & _status, const OpButtonString & _sessionToken );
         ~OpButtonConnectResponse();
 
+    public:
         const OpButtonString & requestId() const;
         const OpButtonString & status() const;
         const OpButtonString & sessionToken() const;

@@ -12,6 +12,7 @@ namespace OpButton
         OpButtonMetricCollector();
         virtual ~OpButtonMetricCollector();
 
+    public:
         virtual void collect( OpButtonVector<OpButtonMetricEntry> & _out ) = 0;
     };
 

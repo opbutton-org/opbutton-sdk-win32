@@ -11,6 +11,7 @@ namespace OpButton
         OpButtonLoggerListener();
         virtual ~OpButtonLoggerListener();
 
+    public:
         virtual void onOpButtonLoggerMessage( OpButtonLogLevel _level, const OpButtonString & _tag, const OpButtonString & _message ) = 0;
     };
 

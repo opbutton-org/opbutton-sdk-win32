@@ -10,6 +10,7 @@ namespace OpButton
         OpButtonActionListener();
         virtual ~OpButtonActionListener();
 
+    public:
         virtual void onOpButtonActionReceived( const OpButtonAction & _action ) = 0;
     };
 

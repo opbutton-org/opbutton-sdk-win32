@@ -8,7 +8,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
-file(GLOB_RECURSE OPBUTTON_HEADERS "include/OpButton/*.h" "include/OpButton/*.inl")
+file(GLOB_RECURSE OPBUTTON_HEADERS "include/OpButton/*.h")
 file(GLOB_RECURSE OPBUTTON_SOURCES "src/*.cpp" "src/*.h")
 
 # ---- LiveKit availability ----

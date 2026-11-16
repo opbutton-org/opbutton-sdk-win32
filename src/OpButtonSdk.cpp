@@ -16,12 +16,14 @@ namespace OpButton
 
     //  Internal instance — holds all mutable state
 
-    class OpButtonInstance : public OpButtonRefCounted
+    class OpButtonInstance
+        : public OpButtonRefCounted
     {
     public:
         OpButtonInstance( const OpButtonConfig & _config );
         ~OpButtonInstance();
 
+    public:
         void startConnection();
         void stopConnection();
         void doShutdown();
@@ -29,6 +31,7 @@ namespace OpButton
         OpButtonJson resolveLogAttributes();
         void dispatchQueuedActions();
 
+    public:
         OpButtonConfig m_config;
         OpButtonHttpClient m_httpClient;
         OpButtonLiveManager m_liveManager;
@@ -63,6 +66,7 @@ namespace OpButton
         OpButtonVector<OpButtonAction> m_actionQueue;
         OpButtonMutex m_actionQueueMutex;
 
+    private:
         void interruptibleSleep_( int64_t _ms );
 
         // Connection

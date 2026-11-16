@@ -9,9 +9,10 @@ namespace OpButton
     {
     public:
         OpButtonCapturedFrame();
-        ~OpButtonCapturedFrame();
         OpButtonCapturedFrame( const uint8_t * _data, size_t _dataSize, int _width, int _height, int _sourceWidth, int _sourceHeight );
+        ~OpButtonCapturedFrame();
 
+    public:
         const uint8_t * data; // raw ARGB pixel data (4 bytes per pixel)
         size_t dataSize;
         int width;

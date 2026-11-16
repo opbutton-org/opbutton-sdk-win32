@@ -10,6 +10,8 @@ namespace OpButton
     public:
         OpButtonSessionAttributeBuilder();
         ~OpButtonSessionAttributeBuilder();
+
+    public:
         OpButtonSessionAttributeBuilder & put( const OpButtonString & _key, const OpButtonJson & _value );
         OpButtonSessionAttributeBuilder & putProvider( const OpButtonString & _key, OpButtonValueProvider * _provider );
 

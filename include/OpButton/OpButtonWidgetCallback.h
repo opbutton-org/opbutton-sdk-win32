@@ -12,6 +12,7 @@ namespace OpButton
         OpButtonWidgetCallback();
         virtual ~OpButtonWidgetCallback();
 
+    public:
         virtual void onOpButtonWidgetAction( const OpButtonAction & _action ) = 0;
     };
 

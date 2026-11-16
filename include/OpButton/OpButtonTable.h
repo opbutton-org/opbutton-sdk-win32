@@ -4,12 +4,14 @@
 
 namespace OpButton
 {
-    class OpButtonTable : public OpButtonWidget
+    class OpButtonTable
+        : public OpButtonWidget
     {
     public:
         OpButtonTable( OpButtonUI & _ui, const OpButtonString & _label );
         ~OpButtonTable() override;
 
+    public:
         OpButtonTable & columns( const OpButtonVector<OpButtonPair<OpButtonString, OpButtonString>> & _cols );
         OpButtonTable & rows( const OpButtonVector<OpButtonJson> & _rowData );
     };

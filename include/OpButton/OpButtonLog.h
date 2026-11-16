@@ -11,6 +11,8 @@ namespace OpButton
     public:
         OpButtonLog();
         ~OpButtonLog();
+
+    public:
         static void setLevel( OpButtonLogLevel _level );
         static void setLoggerListener( OpButtonLoggerListener * _listener );
 
@@ -24,6 +26,7 @@ namespace OpButton
         static OpButtonLoggerListener * s_listener;
         static const char * TAG;
 
+    private:
         static void logMessage( OpButtonLogLevel _level, const char * _fmt, va_list _args );
     };
 

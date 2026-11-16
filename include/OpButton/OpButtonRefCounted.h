@@ -9,14 +9,18 @@ namespace OpButton
     {
     public:
         OpButtonRefCounted();
-        virtual ~OpButtonRefCounted();
         OpButtonRefCounted( const OpButtonRefCounted & ) = delete;
+        virtual ~OpButtonRefCounted();
+
+    public:
         OpButtonRefCounted & operator=( const OpButtonRefCounted & ) = delete;
 
+    public:
         void addRef() const noexcept;
         void release() const noexcept;
         uint32_t getReferenceCount() const noexcept;
 
+    public:
         static void * operator new( size_t _size );
         static void operator delete( void * _memory ) noexcept;
 

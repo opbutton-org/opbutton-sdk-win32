@@ -9,6 +9,8 @@ namespace OpButton
     public:
         OpButtonLogAttributeBuilder();
         ~OpButtonLogAttributeBuilder();
+
+    public:
         OpButtonLogAttributeBuilder & put( const OpButtonString & _key, const OpButtonString & _value );
         OpButtonLogAttributeBuilder & putProvider( const OpButtonString & _key, OpButtonValueProvider * _provider );
 

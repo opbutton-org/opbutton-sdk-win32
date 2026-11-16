@@ -6,12 +6,14 @@
 
 namespace OpButton
 {
-    class OpButtonTextarea : public OpButtonWidget
+    class OpButtonTextarea
+        : public OpButtonWidget
     {
     public:
         OpButtonTextarea( OpButtonUI & _ui, const OpButtonString & _label );
         ~OpButtonTextarea() override;
 
+    public:
         OpButtonTextarea & rows( int _r );
         OpButtonTextarea & defaultValue( const OpButtonString & _v );
 

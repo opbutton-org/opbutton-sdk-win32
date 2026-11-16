@@ -16,7 +16,8 @@ namespace OpButton
     class OpButtonTable;
     class OpButtonLogs;
 
-    class OpButtonLayout : public OpButtonLayoutChild
+    class OpButtonLayout
+        : public OpButtonLayoutChild
     {
     public:
         enum class Direction
@@ -25,8 +26,11 @@ namespace OpButton
             HORIZONTAL
         };
 
+    public:
         OpButtonLayout( OpButtonUI & _ui, Direction _dir );
         ~OpButtonLayout() override;
+
+    public:
         // Sub-layouts
         OpButtonLayout & addVertical();
         OpButtonLayout & addHorizontal();
@@ -53,6 +57,7 @@ namespace OpButton
         Direction m_direction;
         OpButtonVector<OpButtonIntrusivePtr<OpButtonLayoutChild>> m_children;
 
+    private:
         // Internal helpers for padding and collapsible
         class PaddingElement;
         class CollapsibleElement;

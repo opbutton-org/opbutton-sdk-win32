@@ -11,6 +11,8 @@ namespace OpButton
     public:
         OpButtonMetricConfigBuilder();
         ~OpButtonMetricConfigBuilder();
+
+    public:
         OpButtonMetricConfigBuilder & setEnabled( bool _v );
         OpButtonMetricConfigBuilder & setSampleIntervalMs( int64_t _ms );
         OpButtonMetricConfigBuilder & setBufferSize( int _v );

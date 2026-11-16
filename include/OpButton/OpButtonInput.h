@@ -6,12 +6,14 @@
 
 namespace OpButton
 {
-    class OpButtonInput : public OpButtonWidget
+    class OpButtonInput
+        : public OpButtonWidget
     {
     public:
         OpButtonInput( OpButtonUI & _ui, const OpButtonString & _label );
         ~OpButtonInput() override;
 
+    public:
         OpButtonInput & inputType( const OpButtonString & _t );
         OpButtonInput & defaultValue( const OpButtonString & _v );
         OpButtonInput & placeholder( const OpButtonString & _p );

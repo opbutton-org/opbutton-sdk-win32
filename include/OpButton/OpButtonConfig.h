@@ -13,9 +13,12 @@ namespace OpButton
     {
     public:
         ~OpButtonConfig();
+
+    public:
         class Builder;
         friend class Builder;
 
+    public:
         const OpButtonString & baseUrl() const;
         const OpButtonString & apiToken() const;
         const OpButtonString & deviceId() const;
@@ -33,6 +36,7 @@ namespace OpButton
     private:
         OpButtonConfig();
 
+    private:
         OpButtonString m_baseUrl;
         OpButtonString m_apiToken;
         OpButtonString m_deviceId;

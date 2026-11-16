@@ -13,6 +13,7 @@ namespace OpButton
         OpButtonScreenCaptureProvider();
         virtual ~OpButtonScreenCaptureProvider();
 
+    public:
         // Called when live settings change (resolution, fps).
         // Provider should adjust its capture parameters accordingly.
         virtual void onLiveSettingsChanged( int _maxDimension, int _fps ) = 0;

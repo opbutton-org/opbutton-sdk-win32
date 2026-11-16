@@ -11,9 +11,10 @@ namespace OpButton
     {
     public:
         OpButtonMetricEntry( const OpButtonMetricType & _type, double _value );
-        ~OpButtonMetricEntry();
         OpButtonMetricEntry( const OpButtonMetricType & _type, double _value, int64_t _timestampMs );
+        ~OpButtonMetricEntry();
 
+    public:
         const OpButtonMetricType & type() const;
         double value() const;
         int64_t timestampMs() const;

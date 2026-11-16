@@ -7,12 +7,14 @@ namespace OpButton
 {
     class OpButtonUI;
 
-    class OpButtonTab : public OpButtonRefCounted
+    class OpButtonTab
+        : public OpButtonRefCounted
     {
     public:
         OpButtonTab( OpButtonUI & _ui, const OpButtonString & _title );
         ~OpButtonTab() override;
 
+    public:
         OpButtonTab & setId( const OpButtonString & _id );
 
         OpButtonLayout & vertical();

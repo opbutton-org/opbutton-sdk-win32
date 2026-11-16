@@ -10,11 +10,14 @@ namespace OpButton
     class OpButtonTab;
     class OpButtonWidget;
 
-    class OpButtonUI : public OpButtonRefCounted
+    class OpButtonUI
+        : public OpButtonRefCounted
     {
     public:
         OpButtonUI();
         ~OpButtonUI() override;
+
+    public:
         int nextId();
 
         // Tab management
@@ -48,18 +51,22 @@ namespace OpButton
         OpButtonVector<OpButtonIntrusivePtr<OpButtonTab>> m_tabs;
         OpButtonMutex m_tabMutex;
 
+    private:
         struct CallbackEntry
         {
         public:
             CallbackEntry();
             ~CallbackEntry();
 
+        public:
             OpButtonWidgetCallback * raw = nullptr;
             OpButtonIntrusivePtr<OpButtonCallbackFunction> func;
         };
 
+    private:
         void setCallbackEntry_( int _widgetId, CallbackEntry _entry );
 
+    private:
         OpButtonUnorderedMap<int, CallbackEntry> m_callbacks;
         OpButtonMutex m_callbackMutex;
 

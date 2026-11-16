@@ -10,6 +10,7 @@ namespace OpButton
         OpButtonValueProvider();
         virtual ~OpButtonValueProvider();
 
+    public:
         virtual OpButtonString getValue() = 0;
     };
 

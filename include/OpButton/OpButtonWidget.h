@@ -8,11 +8,14 @@ namespace OpButton
 {
     class OpButtonUI;
 
-    class OpButtonWidget : public OpButtonLayoutChild
+    class OpButtonWidget
+        : public OpButtonLayoutChild
     {
     public:
         OpButtonWidget( OpButtonUI & _ui, const OpButtonString & _type );
         ~OpButtonWidget() override;
+
+    public:
         int internalId() const;
         const OpButtonString & publicId() const;
         void setId( const OpButtonString & _id );
@@ -25,6 +28,7 @@ namespace OpButton
         void put_( const OpButtonString & _key, const OpButtonJson & _value );
         void setProvider_( const OpButtonString & _key, OpButtonValueProvider * _provider );
 
+    protected:
         OpButtonUI & m_ui;
 
     private:

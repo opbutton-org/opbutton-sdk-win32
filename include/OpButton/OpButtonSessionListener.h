@@ -13,6 +13,7 @@ namespace OpButton
         OpButtonSessionListener();
         virtual ~OpButtonSessionListener();
 
+    public:
         virtual void onOpButtonSessionConnecting();
         virtual void onOpButtonSessionWaitingApproval( const OpButtonString & _requestId );
         virtual void onOpButtonSessionStarted( const OpButtonString & _sessionToken );

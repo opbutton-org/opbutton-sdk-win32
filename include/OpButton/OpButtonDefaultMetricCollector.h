@@ -7,17 +7,21 @@
 
 namespace OpButton
 {
-    class OpButtonDefaultMetricCollector : public OpButtonMetricCollector
+    class OpButtonDefaultMetricCollector
+        : public OpButtonMetricCollector
     {
     public:
         OpButtonDefaultMetricCollector();
         ~OpButtonDefaultMetricCollector() override;
+
+    public:
         void collect( OpButtonVector<OpButtonMetricEntry> & _out ) override;
 
     private:
         void collectMemory_( OpButtonVector<OpButtonMetricEntry> & _out );
         void collectCpu_( OpButtonVector<OpButtonMetricEntry> & _out );
 
+    private:
         int64_t m_prevCpuKernel = 0;
         int64_t m_prevCpuUser = 0;
         int64_t m_prevCpuTime = 0;

@@ -12,8 +12,12 @@ namespace OpButton
     {
         struct alignas( std::max_align_t ) AllocationDesc
         {
+
+        public:
             AllocationDesc( OpButtonFreeFunc _free, OpButtonAllocatorInterface * _allocator );
             ~AllocationDesc();
+
+        public:
             OpButtonFreeFunc freeFunc;
             OpButtonAllocatorInterface * allocator;
         };
