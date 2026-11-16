@@ -1,905 +1,1232 @@
 #include "OpButton/OpButtonSdk.h"
+#include "OpButton/OpButtonAction.h"
+#include "OpButton/OpButtonDefaultMetricCollector.h"
+#include "OpButton/OpButtonException.h"
 #include "OpButton/OpButtonHttpClient.h"
 #include "OpButton/OpButtonLiveManager.h"
-#include "OpButton/OpButtonDefaultMetricCollector.h"
 #include "OpButton/OpButtonLog.h"
-#include "OpButton/OpButtonAction.h"
-#include "OpButton/OpButtonException.h"
 
 #include "OpButtonWin32.h"
 
-#include <chrono>
 #include <algorithm>
+#include <chrono>
 
-namespace OpButton {
+namespace OpButton
+{
 
-// ══════════════════════════════════════════════════════
-//  Internal instance — holds all mutable state
-// ══════════════════════════════════════════════════════
+    //  Internal instance — holds all mutable state
 
-class OpButtonInstance {
-public:
-    OpButtonInstance(const OpButtonConfig& config);
-    ~OpButtonInstance();
+    class OpButtonInstance : public OpButtonRefCounted
+    {
+    public:
+        OpButtonInstance( const OpButtonConfig & _config );
+        ~OpButtonInstance();
 
-    void startConnection();
-    void stopConnection();
-    void doShutdown();
-    void bufferLog(const OpButtonLogEntry& entry);
-    OpButtonJson resolveLogAttributes();
-    void dispatchQueuedActions();
+        void startConnection();
+        void stopConnection();
+        void doShutdown();
+        void bufferLog( const OpButtonLogEntry & _entry );
+        OpButtonJson resolveLogAttributes();
+        void dispatchQueuedActions();
 
-    OpButtonConfig config;
-    OpButtonHttpClient httpClient;
-    OpButtonLiveManager liveManager;
-    OpButtonString sessionToken;
-    OpButtonMutex sessionTokenMutex;
-    OpButtonAtomic<OpButtonSessionStatus> status{OpButtonSessionStatus::PL_DISCONNECTED};
-    OpButtonUI ui;
-    OpButtonMetrics metrics;
-    OpButtonDefaultMetricCollector defaultMetricCollector;
+        OpButtonConfig m_config;
+        OpButtonHttpClient m_httpClient;
+        OpButtonLiveManager m_liveManager;
+        OpButtonString m_sessionToken;
+        OpButtonMutex m_sessionTokenMutex;
+        OpButtonAtomic<OpButtonSessionStatus> m_status{ OpButtonSessionStatus::PL_DISCONNECTED };
+        OpButtonUI m_ui;
+        OpButtonMetrics m_metrics;
+        OpButtonDefaultMetricCollector m_defaultMetricCollector;
 
-    OpButtonVector<OpButtonActionListener*> actionListeners;
-    OpButtonVector<OpButtonSessionListener*> sessionListeners;
-    OpButtonMutex listenerMutex;
+        OpButtonVector<OpButtonActionListener *> m_actionListeners;
+        OpButtonVector<OpButtonSessionListener *> m_sessionListeners;
+        OpButtonMutex m_listenerMutex;
 
-private:
-    OpButtonAtomic<bool> m_running{false};
-    OpButtonMutex m_sleepMutex;
-    OpButtonConditionVariable m_sleepCv;
+    private:
+        OpButtonAtomic<bool> m_running{ false };
+        OpButtonMutex m_sleepMutex;
+        OpButtonConditionVariable m_sleepCv;
 
-    OpButtonThread m_connectionThread;
-    OpButtonThread m_actionPollThread;
-    OpButtonThread m_metricSampleThread;
+        OpButtonThread m_connectionThread;
+        OpButtonThread m_actionPollThread;
+        OpButtonThread m_metricSampleThread;
 
-    int64_t m_currentActionPollIntervalMs;
+        int64_t m_currentActionPollIntervalMs;
 
-    OpButtonVector<OpButtonLogEntry> m_logBuffer;
-    OpButtonMutex m_logBufferMutex;
-    bool m_logOverflowWarned = false;
+        OpButtonVector<OpButtonLogEntry> m_logBuffer;
+        OpButtonMutex m_logBufferMutex;
+        bool m_logOverflowWarned = false;
 
-    OpButtonMap<OpButtonString, OpButtonJson> m_sessionAttributeCache;
+        OpButtonMap<OpButtonString, OpButtonJson> m_sessionAttributeCache;
 
-    OpButtonVector<OpButtonAction> m_actionQueue;
-    OpButtonMutex m_actionQueueMutex;
+        OpButtonVector<OpButtonAction> m_actionQueue;
+        OpButtonMutex m_actionQueueMutex;
 
-    void interruptibleSleep(int64_t ms);
+        void interruptibleSleep_( int64_t _ms );
 
-    // Connection
-    void connectAndWaitApproval();
-    void doConnectAndWaitApproval();
-    void onApproved(const OpButtonString& token);
-    void onRejected();
+        // Connection
+        void connectAndWaitApproval_();
+        void doConnectAndWaitApproval_();
+        void onApproved_( const OpButtonString & _token );
+        void onRejected_();
 
-    // Action polling
-    void actionPollLoop(const OpButtonString& token);
-    void doPollActions(const OpButtonString& token);
+        // Action polling
+        void actionPollLoop_( const OpButtonString & _token );
+        void doPollActions_( const OpButtonString & _token );
 
-    // Metric sampling
-    void metricSampleLoop();
+        // Metric sampling
+        void metricSampleLoop_();
 
-    // Session attributes
-    OpButtonMap<OpButtonString, OpButtonJson> resolveAllSessionAttributes();
-    OpButtonMap<OpButtonString, OpButtonJson> resolveChangedSessionAttributes();
+        // Session attributes
+        OpButtonMap<OpButtonString, OpButtonJson> resolveAllSessionAttributes_();
+        OpButtonMap<OpButtonString, OpButtonJson> resolveChangedSessionAttributes_();
 
-    // Log buffering
-    OpButtonVector<OpButtonLogEntry> drainLogChunk();
-    void requeueLogs(const OpButtonVector<OpButtonLogEntry>& chunk);
-    void flushLogs(const OpButtonString& token);
-    void flushMetrics(const OpButtonString& token);
+        // Log buffering
+        OpButtonVector<OpButtonLogEntry> drainLogChunk_();
+        void requeueLogs_( const OpButtonVector<OpButtonLogEntry> & _chunk );
+        void flushLogs_( const OpButtonString & _token );
+        void flushMetrics_( const OpButtonString & _token );
 
-    // Reconnection
-    void attemptReconnect(const OpButtonString& token);
-    void resetAndRestart();
+        // Reconnection
+        void attemptReconnect_( const OpButtonString & _token );
+        void resetAndRestart_();
 
-    // Helpers
-    void setStatus(OpButtonSessionStatus s) { status.store(s); }
-
-    void notifyConnecting();
-    void notifyWaitingApproval(const OpButtonString& reqId);
-    void notifySessionStarted(const OpButtonString& token);
-    void notifySessionClosed();
-    void notifyRejected();
-    void notifyAuthFailed();
-    void notifyError(const OpButtonException& e);
-};
-
-// ══════════════════════════════════════════════════════
-//  Static singleton state
-// ══════════════════════════════════════════════════════
-
-static OpButtonInstance* s_instance = nullptr;
-static OpButtonMutex s_initMutex;
-
-static OpButtonInstance* requireInstance() {
-    if (!s_instance) {
-        OpButtonLog::e("OpButtonSdk::initialize() must be called first");
-    }
-    return s_instance;
-}
-
-// ══════════════════════════════════════════════════════
-//  OpButtonSdk static methods
-// ══════════════════════════════════════════════════════
-
-void OpButtonSdk::initialize(const OpButtonConfig& config) {
-    std::lock_guard<OpButtonMutex> lock(s_initMutex);
-    if (s_instance) {
-        OpButtonLog::w("OpButtonSdk::initialize() called more than once, ignoring");
-        return;
-    }
-
-    s_instance = new OpButtonInstance(config);
-    OpButtonLog::i("OpButton SDK initialized (server: %s)", config.baseUrl().c_str());
-
-    if (config.sessionListener()) {
-        s_instance->sessionListeners.push_back(config.sessionListener());
-    }
-    if (config.actionListener()) {
-        s_instance->actionListeners.push_back(config.actionListener());
-    }
-
-    auto& mc = config.metricConfig();
-    if (mc.isEnabled()) {
-        s_instance->metrics.addCollector(&s_instance->defaultMetricCollector);
-        for (auto* collector : mc.collectors()) {
-            s_instance->metrics.addCollector(collector);
+        // Helpers
+        void setStatus_( OpButtonSessionStatus _s )
+        {
+            m_status.store( _s );
         }
-        OpButtonLog::i("Built-in metrics enabled (sample interval: %lldms)", static_cast<long long>(mc.sampleIntervalMs()));
-    }
 
-    if (config.autoConnect()) {
-        s_instance->startConnection();
-    }
-}
+        void notifyConnecting_();
+        void notifyWaitingApproval_( const OpButtonString & _reqId );
+        void notifySessionStarted_( const OpButtonString & _token );
+        void notifySessionClosed_();
+        void notifyRejected_();
+        void notifyAuthFailed_();
+        void notifyError_( const OpButtonException & _e );
+    };
 
-bool OpButtonSdk::isInitialized() {
-    return s_instance != nullptr;
-}
+    //  Static singleton state
 
-OpButtonSessionStatus OpButtonSdk::status() {
-    auto* p = s_instance;
-    return p ? p->status.load() : OpButtonSessionStatus::PL_DISCONNECTED;
-}
+    static OpButtonInstance * s_instance = nullptr;
+    static OpButtonMutex s_initMutex;
 
-void OpButtonSdk::addActionListener(OpButtonActionListener* listener) {
-    auto* p = requireInstance();
-    if (!p) return;
-    std::lock_guard<OpButtonMutex> lock(p->listenerMutex);
-    p->actionListeners.push_back(listener);
-}
-
-void OpButtonSdk::removeActionListener(OpButtonActionListener* listener) {
-    auto* p = s_instance;
-    if (!p) return;
-    std::lock_guard<OpButtonMutex> lock(p->listenerMutex);
-    auto& v = p->actionListeners;
-    v.erase(std::remove(v.begin(), v.end(), listener), v.end());
-}
-
-void OpButtonSdk::addSessionListener(OpButtonSessionListener* listener) {
-    auto* p = requireInstance();
-    if (!p) return;
-    std::lock_guard<OpButtonMutex> lock(p->listenerMutex);
-    p->sessionListeners.push_back(listener);
-}
-
-void OpButtonSdk::removeSessionListener(OpButtonSessionListener* listener) {
-    auto* p = s_instance;
-    if (!p) return;
-    std::lock_guard<OpButtonMutex> lock(p->listenerMutex);
-    auto& v = p->sessionListeners;
-    v.erase(std::remove(v.begin(), v.end(), listener), v.end());
-}
-
-OpButtonUI& OpButtonSdk::getUI() {
-    return requireInstance()->ui;
-}
-
-OpButtonMetrics& OpButtonSdk::getMetrics() {
-    return requireInstance()->metrics;
-}
-
-void OpButtonSdk::setScreenCaptureProvider(OpButtonScreenCaptureProvider* provider) {
-    auto* p = requireInstance();
-    if (p) p->liveManager.setScreenCaptureProvider(provider);
-}
-
-void OpButtonSdk::connect() {
-    auto* p = requireInstance();
-    if (p) p->startConnection();
-}
-
-void OpButtonSdk::disconnect() {
-    auto* p = s_instance;
-    if (p) p->stopConnection();
-}
-
-void OpButtonSdk::update() {
-    auto* p = s_instance;
-    if (!p) return;
-    p->ui.pollValues();
-    p->dispatchQueuedActions();
-}
-
-void OpButtonSdk::log(OpButtonLogLevel level, const OpButtonString& message) {
-    auto* p = s_instance;
-    if (!p || !p->config.logConfig().isEnabled()) return;
-    p->bufferLog(OpButtonLogEntry(level, message, OpButtonString(), OpButtonString(), {}, p->resolveLogAttributes()));
-}
-
-void OpButtonSdk::log(OpButtonLogLevel level, const OpButtonString& message,
-                    const OpButtonString& category, const OpButtonString& thread) {
-    auto* p = s_instance;
-    if (!p || !p->config.logConfig().isEnabled()) return;
-    p->bufferLog(OpButtonLogEntry(level, message, category, thread, {}, p->resolveLogAttributes()));
-}
-
-void OpButtonSdk::log(OpButtonLogLevel level, const OpButtonString& message,
-                    const OpButtonMap<OpButtonString, OpButtonJson>& metadata) {
-    auto* p = s_instance;
-    if (!p || !p->config.logConfig().isEnabled()) return;
-    p->bufferLog(OpButtonLogEntry(level, message, OpButtonString(), OpButtonString(), metadata, p->resolveLogAttributes()));
-}
-
-void OpButtonSdk::log(OpButtonLogLevel level, const OpButtonString& message,
-                    const OpButtonString& category, const OpButtonString& thread,
-                    const OpButtonMap<OpButtonString, OpButtonJson>& metadata) {
-    auto* p = s_instance;
-    if (!p || !p->config.logConfig().isEnabled()) return;
-    p->bufferLog(OpButtonLogEntry(level, message, category, thread, metadata, p->resolveLogAttributes()));
-}
-
-void OpButtonSdk::log(const OpButtonLogEntry& entry) {
-    auto* p = s_instance;
-    if (!p || !p->config.logConfig().isEnabled()) return;
-    p->bufferLog(entry);
-}
-
-static void bufferStructuredLog(OpButtonInstance* p, const OpButtonString& kind,
-                                const OpButtonString& message, const OpButtonString& category,
-                                const OpButtonMap<OpButtonString, OpButtonJson>& metadata,
-                                int64_t clientTimestampMs) {
-    if (!p || !p->config.logConfig().isEnabled()) return;
-
-    OpButtonString resolvedCategory;
-    if (category.empty()) {
-        resolvedCategory = kind;
-    } else if (category == kind || category.substr(0, kind.size() + 1) == kind + OpButtonString("_")) {
-        resolvedCategory = category;
-    } else {
-        resolvedCategory = kind + OpButtonString("_") + category;
-    }
-
-    OpButtonMap<OpButtonString, OpButtonJson> merged = metadata;
-    merged["opbutton_kind"] = OpButtonJson(kind);
-
-    p->bufferLog(OpButtonLogEntry(
-        OpButtonLogLevel::PL_INFO, message, resolvedCategory, OpButtonString(),
-        merged, p->resolveLogAttributes(), clientTimestampMs));
-}
-
-static int64_t nowMs() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-}
-
-void OpButtonSdk::event(const OpButtonString& message) {
-    bufferStructuredLog(s_instance, "event", message, OpButtonString(), {}, nowMs());
-}
-
-void OpButtonSdk::event(const OpButtonString& message, const OpButtonMap<OpButtonString, OpButtonJson>& metadata) {
-    bufferStructuredLog(s_instance, "event", message, OpButtonString(), metadata, nowMs());
-}
-
-void OpButtonSdk::event(const OpButtonString& message, const OpButtonString& category,
-                      const OpButtonMap<OpButtonString, OpButtonJson>& metadata) {
-    bufferStructuredLog(s_instance, "event", message, category, metadata, nowMs());
-}
-
-void OpButtonSdk::revenue(const OpButtonString& message) {
-    bufferStructuredLog(s_instance, "revenue", message, OpButtonString(), {}, nowMs());
-}
-
-void OpButtonSdk::revenue(const OpButtonString& message, const OpButtonMap<OpButtonString, OpButtonJson>& metadata) {
-    bufferStructuredLog(s_instance, "revenue", message, OpButtonString(), metadata, nowMs());
-}
-
-void OpButtonSdk::revenue(const OpButtonString& message, const OpButtonString& category,
-                        const OpButtonMap<OpButtonString, OpButtonJson>& metadata) {
-    bufferStructuredLog(s_instance, "revenue", message, category, metadata, nowMs());
-}
-
-void OpButtonSdk::changeScreen(const OpButtonString& screenType, const OpButtonString& screenName) {
-    OpButtonMap<OpButtonString, OpButtonJson> metadata;
-    metadata["opbutton_command"] = OpButtonJson("change_screen");
-    metadata["opbutton_slice_type"] = OpButtonJson("screen");
-    metadata["opbutton_slice_name"] = OpButtonJson(screenName);
-    metadata["screen_type"] = OpButtonJson(screenType);
-    metadata["screen_name"] = OpButtonJson(screenName);
-    bufferStructuredLog(s_instance, "event", "change_screen", "change_screen", metadata, nowMs());
-}
-
-void OpButtonSdk::acknowledgeAction(const OpButtonString& actionId, const OpButtonJson& ackPayload) {
-    auto* p = s_instance;
-    if (!p) return;
-    OpButtonString token;
+    //////////////////////////////////////////////////////////////////////////
+    static OpButtonInstance * requireInstance()
     {
-        std::lock_guard<OpButtonMutex> lock(p->sessionTokenMutex);
-        token = p->sessionToken;
-    }
-    if (token.empty()) return;
-    try {
-        p->httpClient.acknowledgeAction(token, actionId, ackPayload);
-    } catch (const OpButtonException& e) {
-        OpButtonLog::e("Failed to acknowledge action: %s", e.what());
-    }
-}
-
-void OpButtonSdk::shutdown() {
-    std::lock_guard<OpButtonMutex> lock(s_initMutex);
-    auto* p = s_instance;
-    s_instance = nullptr;
-    if (p) {
-        p->doShutdown();
-        delete p;
-    }
-}
-
-// ══════════════════════════════════════════════════════
-//  OpButtonInstance implementation
-// ══════════════════════════════════════════════════════
-
-OpButtonInstance::OpButtonInstance(const OpButtonConfig& config)
-    : config(config)
-    , httpClient(config.baseUrl(), config.apiToken())
-    , liveManager(httpClient)
-    , m_currentActionPollIntervalMs(config.actionPollIntervalMs()) {
-    OpButtonLog::setLevel(config.logConfig().logLevel());
-    OpButtonLog::setLoggerListener(config.loggerListener());
-
-    liveManager.setOnLiveModeChanged([this](bool isLive, int64_t pollIntervalMs) {
-        if (isLive && pollIntervalMs > 0) {
-            m_currentActionPollIntervalMs = pollIntervalMs;
-        } else {
-            m_currentActionPollIntervalMs = this->config.actionPollIntervalMs();
+        if( s_instance == nullptr )
+        {
+            OpButtonLog::e( "OpButtonSdk::initialize() must be called first" );
         }
-    });
-
-    auto& mc = config.metricConfig();
-    if (mc.isEnabled()) {
-        metrics.sampleIntervalMs = mc.sampleIntervalMs();
-        metrics.bufferSize = mc.bufferSize();
-        metrics.batchSize = mc.batchSize();
-    }
-}
-
-OpButtonInstance::~OpButtonInstance() {
-    doShutdown();
-}
-
-void OpButtonInstance::startConnection() {
-    if (m_running.exchange(true)) {
-        OpButtonLog::w("Already connecting/connected");
-        return;
+        return s_instance;
     }
 
-    m_connectionThread = OpButtonThread([this] { connectAndWaitApproval(); });
-}
+    //  OpButtonSdk static methods
 
-void OpButtonInstance::stopConnection() {
-    if (!m_running.exchange(false)) return;
-
-    liveManager.onSessionClosed();
-
-    // Wake up sleeping threads
-    m_sleepCv.notify_all();
-
-    // Wait for threads to finish
-    if (m_connectionThread.joinable()) m_connectionThread.join();
-    if (m_actionPollThread.joinable()) m_actionPollThread.join();
-    if (m_metricSampleThread.joinable()) m_metricSampleThread.join();
-
-    OpButtonString token;
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::initialize( const OpButtonConfig & _config )
     {
-        std::lock_guard<OpButtonMutex> lock(sessionTokenMutex);
-        token = sessionToken;
-        sessionToken.clear();
-    }
+        std::lock_guard<OpButtonMutex> lock( s_initMutex );
+        if( s_instance != nullptr )
+        {
+            OpButtonLog::w( "OpButtonSdk::initialize() called more than once, ignoring" );
+            return;
+        }
 
-    if (!token.empty()) {
-        try {
-            flushLogs(token);
-            flushMetrics(token);
-            httpClient.closeSession(token);
-        } catch (...) {}
-        setStatus(OpButtonSessionStatus::PL_CLOSED);
-        notifySessionClosed();
-    } else {
-        setStatus(OpButtonSessionStatus::PL_DISCONNECTED);
-    }
-}
+        s_instance = new OpButtonInstance( _config );
+        OpButtonLog::i( "OpButton SDK initialized (server: %s)", _config.baseUrl().c_str() );
 
-void OpButtonInstance::doShutdown() {
-    OpButtonLog::i("Shutting down OpButton SDK");
-    liveManager.shutdown();
-    stopConnection();
-    httpClient.shutdown();
-    {
-        std::lock_guard<OpButtonMutex> lock(listenerMutex);
-        actionListeners.clear();
-        sessionListeners.clear();
-    }
-    {
-        std::lock_guard<OpButtonMutex> lock(m_logBufferMutex);
-        m_logBuffer.clear();
-    }
-    metrics.clear();
-}
+        if( _config.sessionListener() != nullptr )
+        {
+            s_instance->m_sessionListeners.push_back( _config.sessionListener() );
+        }
+        if( _config.actionListener() != nullptr )
+        {
+            s_instance->m_actionListeners.push_back( _config.actionListener() );
+        }
 
-void OpButtonInstance::bufferLog(const OpButtonLogEntry& entry) {
-    std::lock_guard<OpButtonMutex> lock(m_logBufferMutex);
-    if (static_cast<int>(m_logBuffer.size()) >= config.logConfig().bufferSize()) {
-        m_logBuffer.erase(m_logBuffer.begin());
-        if (!m_logOverflowWarned) {
-            m_logOverflowWarned = true;
-            OpButtonLog::w("Log buffer overflow (%d), dropping oldest entries", config.logConfig().bufferSize());
+        const OpButtonMetricConfigBuilder & mc = _config.metricConfig();
+        if( mc.isEnabled() == true )
+        {
+            s_instance->m_metrics.addCollector( &s_instance->m_defaultMetricCollector );
+            for( auto * collector : mc.collectors() )
+            {
+                s_instance->m_metrics.addCollector( collector );
+            }
+            OpButtonLog::i( "Built-in metrics enabled (sample interval: %lldms)", static_cast<long long>( mc.sampleIntervalMs() ) );
+        }
+
+        if( _config.autoConnect() == true )
+        {
+            s_instance->startConnection();
         }
     }
-    m_logBuffer.push_back(entry);
-}
 
-OpButtonJson OpButtonInstance::resolveLogAttributes() {
-    const auto& builder = config.logConfig().attributes();
-    const auto& staticAttrs = builder.staticAttributes();
-    const auto& dynamicAttrs = builder.dynamicAttributes();
-
-    if (staticAttrs.empty() && dynamicAttrs.empty()) return OpButtonJson();
-
-    OpButtonJson attributes = OpButtonJson::object();
-    for (const auto& kv : staticAttrs) {
-        attributes.put(kv.first, OpButtonJson(kv.second));
-    }
-    for (const auto& kv : dynamicAttrs) {
-        try {
-            OpButtonString val = kv.second->getValue();
-            attributes.put(kv.first, OpButtonJson(val));
-        } catch (...) {}
-    }
-
-    return attributes.objectSize() == 0 ? OpButtonJson() : attributes;
-}
-
-void OpButtonInstance::dispatchQueuedActions() {
-    OpButtonVector<OpButtonAction> actions;
+    //////////////////////////////////////////////////////////////////////////
+    bool OpButtonSdk::isInitialized()
     {
-        std::lock_guard<OpButtonMutex> lock(m_actionQueueMutex);
-        actions.swap(m_actionQueue);
+        return s_instance != nullptr;
     }
 
-    OpButtonString token;
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonSessionStatus OpButtonSdk::status()
     {
-        std::lock_guard<OpButtonMutex> lock(sessionTokenMutex);
-        token = sessionToken;
+        OpButtonInstance * p = s_instance;
+        return p ? p->m_status.load() : OpButtonSessionStatus::PL_DISCONNECTED;
     }
 
-    for (const auto& action : actions) {
-        // Intercept LIVE_* actions internally
-        OpButtonActionType type = action.actionType();
-        if (type == OpButtonActionType::LIVE_START || type == OpButtonActionType::LIVE_UPDATE ||
-            type == OpButtonActionType::LIVE_STOP || type == OpButtonActionType::LIVE_TAP ||
-            type == OpButtonActionType::LIVE_LONG_PRESS) {
-            OpButtonJson ack;
-            switch (type) {
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::addActionListener( OpButtonActionListener * _listener )
+    {
+        OpButtonInstance * p = requireInstance();
+        if( p == nullptr )
+        {
+            return;
+        }
+        std::lock_guard<OpButtonMutex> lock( p->m_listenerMutex );
+        p->m_actionListeners.push_back( _listener );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::removeActionListener( OpButtonActionListener * _listener )
+    {
+        OpButtonInstance * p = s_instance;
+        if( p == nullptr )
+        {
+            return;
+        }
+        std::lock_guard<OpButtonMutex> lock( p->m_listenerMutex );
+        OpButtonVector<OpButtonActionListener *> & v = p->m_actionListeners;
+        v.erase( std::remove( v.begin(), v.end(), _listener ), v.end() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::addSessionListener( OpButtonSessionListener * _listener )
+    {
+        OpButtonInstance * p = requireInstance();
+        if( p == nullptr )
+        {
+            return;
+        }
+        std::lock_guard<OpButtonMutex> lock( p->m_listenerMutex );
+        p->m_sessionListeners.push_back( _listener );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::removeSessionListener( OpButtonSessionListener * _listener )
+    {
+        OpButtonInstance * p = s_instance;
+        if( p == nullptr )
+        {
+            return;
+        }
+        std::lock_guard<OpButtonMutex> lock( p->m_listenerMutex );
+        OpButtonVector<OpButtonSessionListener *> & v = p->m_sessionListeners;
+        v.erase( std::remove( v.begin(), v.end(), _listener ), v.end() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonUI & OpButtonSdk::getUI()
+    {
+        return requireInstance()->m_ui;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonMetrics & OpButtonSdk::getMetrics()
+    {
+        return requireInstance()->m_metrics;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::setScreenCaptureProvider( OpButtonScreenCaptureProvider * _provider )
+    {
+        OpButtonInstance * p = requireInstance();
+        if( p != nullptr )
+        {
+            p->m_liveManager.setScreenCaptureProvider( _provider );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::connect()
+    {
+        OpButtonInstance * p = requireInstance();
+        if( p != nullptr )
+        {
+            p->startConnection();
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::disconnect()
+    {
+        OpButtonInstance * p = s_instance;
+        if( p != nullptr )
+        {
+            p->stopConnection();
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::update()
+    {
+        OpButtonInstance * p = s_instance;
+        if( p == nullptr )
+        {
+            return;
+        }
+        p->m_ui.pollValues();
+        p->dispatchQueuedActions();
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::log( OpButtonLogLevel _level, const OpButtonString & _message )
+    {
+        OpButtonInstance * p = s_instance;
+        if( !p || !p->m_config.logConfig().isEnabled() )
+        {
+            return;
+        }
+        p->bufferLog( OpButtonLogEntry( _level, _message, OpButtonString(), OpButtonString(), {}, p->resolveLogAttributes() ) );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::log( OpButtonLogLevel _level, const OpButtonString & _message, const OpButtonString & _category, const OpButtonString & _thread )
+    {
+        OpButtonInstance * p = s_instance;
+        if( !p || !p->m_config.logConfig().isEnabled() )
+        {
+            return;
+        }
+        p->bufferLog( OpButtonLogEntry( _level, _message, _category, _thread, {}, p->resolveLogAttributes() ) );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::log( OpButtonLogLevel _level, const OpButtonString & _message, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata )
+    {
+        OpButtonInstance * p = s_instance;
+        if( !p || !p->m_config.logConfig().isEnabled() )
+        {
+            return;
+        }
+        p->bufferLog( OpButtonLogEntry( _level, _message, OpButtonString(), OpButtonString(), _metadata, p->resolveLogAttributes() ) );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::log( OpButtonLogLevel _level, const OpButtonString & _message, const OpButtonString & _category, const OpButtonString & _thread, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata )
+    {
+        OpButtonInstance * p = s_instance;
+        if( !p || !p->m_config.logConfig().isEnabled() )
+        {
+            return;
+        }
+        p->bufferLog( OpButtonLogEntry( _level, _message, _category, _thread, _metadata, p->resolveLogAttributes() ) );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::log( const OpButtonLogEntry & _entry )
+    {
+        OpButtonInstance * p = s_instance;
+        if( !p || !p->m_config.logConfig().isEnabled() )
+        {
+            return;
+        }
+        p->bufferLog( _entry );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    static void bufferStructuredLog( OpButtonInstance * _p, const OpButtonString & _kind, const OpButtonString & _message, const OpButtonString & _category, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata, int64_t _clientTimestampMs )
+    {
+        if( !_p || !_p->m_config.logConfig().isEnabled() )
+        {
+            return;
+        }
+
+        OpButtonString resolvedCategory;
+        if( _category.empty() == true )
+        {
+            resolvedCategory = _kind;
+        }
+        else if( _category == _kind || _category.substr( 0, _kind.size() + 1 ) == _kind + OpButtonString( "_" ) )
+        {
+            resolvedCategory = _category;
+        }
+        else
+        {
+            resolvedCategory = _kind + OpButtonString( "_" ) + _category;
+        }
+
+        OpButtonMap<OpButtonString, OpButtonJson> merged = _metadata;
+        merged["opbutton_kind"] = OpButtonJson( _kind );
+
+        _p->bufferLog( OpButtonLogEntry( OpButtonLogLevel::PL_INFO, _message, resolvedCategory, OpButtonString(), merged, _p->resolveLogAttributes(), _clientTimestampMs ) );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    static int64_t nowMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::event( const OpButtonString & _message )
+    {
+        bufferStructuredLog( s_instance, "event", _message, OpButtonString(), {}, nowMs() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::event( const OpButtonString & _message, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata )
+    {
+        bufferStructuredLog( s_instance, "event", _message, OpButtonString(), _metadata, nowMs() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::event( const OpButtonString & _message, const OpButtonString & _category, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata )
+    {
+        bufferStructuredLog( s_instance, "event", _message, _category, _metadata, nowMs() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::revenue( const OpButtonString & _message )
+    {
+        bufferStructuredLog( s_instance, "revenue", _message, OpButtonString(), {}, nowMs() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::revenue( const OpButtonString & _message, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata )
+    {
+        bufferStructuredLog( s_instance, "revenue", _message, OpButtonString(), _metadata, nowMs() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::revenue( const OpButtonString & _message, const OpButtonString & _category, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata )
+    {
+        bufferStructuredLog( s_instance, "revenue", _message, _category, _metadata, nowMs() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::changeScreen( const OpButtonString & _screenType, const OpButtonString & _screenName )
+    {
+        OpButtonMap<OpButtonString, OpButtonJson> metadata;
+        metadata["opbutton_command"] = OpButtonJson( "change_screen" );
+        metadata["opbutton_slice_type"] = OpButtonJson( "screen" );
+        metadata["opbutton_slice_name"] = OpButtonJson( _screenName );
+        metadata["screen_type"] = OpButtonJson( _screenType );
+        metadata["screen_name"] = OpButtonJson( _screenName );
+        bufferStructuredLog( s_instance, "event", "change_screen", "change_screen", metadata, nowMs() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::acknowledgeAction( const OpButtonString & _actionId, const OpButtonJson & _ackPayload )
+    {
+        OpButtonInstance * p = s_instance;
+        if( p == nullptr )
+        {
+            return;
+        }
+        OpButtonString token;
+        {
+            std::lock_guard<OpButtonMutex> lock( p->m_sessionTokenMutex );
+            token = p->m_sessionToken;
+        }
+        if( token.empty() == true )
+        {
+            return;
+        }
+        try
+        {
+            p->m_httpClient.acknowledgeAction( token, _actionId, _ackPayload );
+        }
+        catch( const OpButtonException & e )
+        {
+            OpButtonLog::e( "Failed to acknowledge action: %s", e.what() );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonSdk::shutdown()
+    {
+        std::lock_guard<OpButtonMutex> lock( s_initMutex );
+        OpButtonInstance * p = s_instance;
+        s_instance = nullptr;
+        if( p != nullptr )
+        {
+            p->doShutdown();
+            delete p;
+        }
+    }
+
+    //  OpButtonInstance implementation
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonInstance::OpButtonInstance( const OpButtonConfig & _config )
+        : m_config( _config )
+        , m_httpClient( _config.baseUrl(), _config.apiToken() )
+        , m_liveManager( m_httpClient )
+        , m_currentActionPollIntervalMs( _config.actionPollIntervalMs() )
+    {
+        OpButtonLog::setLevel( _config.logConfig().logLevel() );
+        OpButtonLog::setLoggerListener( _config.loggerListener() );
+
+        m_liveManager.setOnLiveModeChanged(
+            [this]( bool _isLive, int64_t _pollIntervalMs )
+            {
+                if( _isLive && _pollIntervalMs > 0 )
+                {
+                    m_currentActionPollIntervalMs = _pollIntervalMs;
+                }
+                else
+                {
+                    m_currentActionPollIntervalMs = this->m_config.actionPollIntervalMs();
+                }
+            } );
+
+        const OpButtonMetricConfigBuilder & mc = _config.metricConfig();
+        if( mc.isEnabled() == true )
+        {
+            m_metrics.sampleIntervalMs = mc.sampleIntervalMs();
+            m_metrics.bufferSize = mc.bufferSize();
+            m_metrics.batchSize = mc.batchSize();
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonInstance::~OpButtonInstance()
+    {
+        this->doShutdown();
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::startConnection()
+    {
+        if( m_running.exchange( true ) == true )
+        {
+            OpButtonLog::w( "Already connecting/connected" );
+            return;
+        }
+
+        m_connectionThread = OpButtonThread( [this]
+                                             { this->connectAndWaitApproval_(); } );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::stopConnection()
+    {
+        if( m_running.exchange( false ) == false )
+        {
+            return;
+        }
+
+        m_liveManager.onSessionClosed();
+
+        // Wake up sleeping threads
+        m_sleepCv.notify_all();
+
+        // Wait for threads to finish
+        if( m_connectionThread.joinable() == true )
+        {
+            m_connectionThread.join();
+        }
+        if( m_actionPollThread.joinable() == true )
+        {
+            m_actionPollThread.join();
+        }
+        if( m_metricSampleThread.joinable() == true )
+        {
+            m_metricSampleThread.join();
+        }
+
+        OpButtonString token;
+        {
+            std::lock_guard<OpButtonMutex> lock( m_sessionTokenMutex );
+            token = m_sessionToken;
+            m_sessionToken.clear();
+        }
+
+        if( token.empty() == false )
+        {
+            try
+            {
+                this->flushLogs_( token );
+                this->flushMetrics_( token );
+                m_httpClient.closeSession( token );
+            }
+            catch( ... )
+            {
+            }
+            this->setStatus_( OpButtonSessionStatus::PL_CLOSED );
+            this->notifySessionClosed_();
+        }
+        else
+        {
+            this->setStatus_( OpButtonSessionStatus::PL_DISCONNECTED );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::doShutdown()
+    {
+        OpButtonLog::i( "Shutting down OpButton SDK" );
+        m_liveManager.shutdown();
+        this->stopConnection();
+        m_httpClient.shutdown();
+        {
+            std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+            m_actionListeners.clear();
+            m_sessionListeners.clear();
+        }
+        {
+            std::lock_guard<OpButtonMutex> lock( m_logBufferMutex );
+            m_logBuffer.clear();
+        }
+        m_metrics.clear();
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::bufferLog( const OpButtonLogEntry & _entry )
+    {
+        bool warnOverflow = false;
+        {
+            std::lock_guard<OpButtonMutex> lock( m_logBufferMutex );
+            if( static_cast<int>( m_logBuffer.size() ) >= m_config.logConfig().bufferSize() )
+            {
+                m_logBuffer.erase( m_logBuffer.begin() );
+                if( m_logOverflowWarned == false )
+                {
+                    m_logOverflowWarned = true;
+                    warnOverflow = true;
+                }
+            }
+            m_logBuffer.push_back( _entry );
+        }
+
+        if( warnOverflow == true )
+        {
+            OpButtonLog::w( "Log buffer overflow (%d), dropping oldest entries", m_config.logConfig().bufferSize() );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonJson OpButtonInstance::resolveLogAttributes()
+    {
+        const OpButtonLogAttributeBuilder & builder = m_config.logConfig().attributes();
+        const OpButtonMap<OpButtonString, OpButtonString> & staticAttrs = builder.staticAttributes();
+        const OpButtonMap<OpButtonString, OpButtonValueProvider *> & dynamicAttrs = builder.dynamicAttributes();
+
+        if( staticAttrs.empty() && dynamicAttrs.empty() )
+        {
+            return OpButtonJson();
+        }
+
+        OpButtonJson attributes = OpButtonJson::object();
+        for( const auto & kv : staticAttrs )
+        {
+            attributes.put( kv.first, OpButtonJson( kv.second ) );
+        }
+        for( const auto & kv : dynamicAttrs )
+        {
+            try
+            {
+                OpButtonString val = kv.second->getValue();
+                attributes.put( kv.first, OpButtonJson( val ) );
+            }
+            catch( ... )
+            {
+            }
+        }
+
+        return attributes.objectSize() == 0 ? OpButtonJson() : attributes;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::dispatchQueuedActions()
+    {
+        OpButtonVector<OpButtonAction> actions;
+        {
+            std::lock_guard<OpButtonMutex> lock( m_actionQueueMutex );
+            actions.swap( m_actionQueue );
+        }
+
+        OpButtonString token;
+        {
+            std::lock_guard<OpButtonMutex> lock( m_sessionTokenMutex );
+            token = m_sessionToken;
+        }
+
+        for( const auto & action : actions )
+        {
+            // Intercept LIVE_* actions internally
+            OpButtonActionType type = action.actionType();
+            if( type == OpButtonActionType::LIVE_START || type == OpButtonActionType::LIVE_UPDATE || type == OpButtonActionType::LIVE_STOP || type == OpButtonActionType::LIVE_TAP ||
+                type == OpButtonActionType::LIVE_LONG_PRESS )
+            {
+                OpButtonJson ack;
+                switch( type )
+                {
                 case OpButtonActionType::LIVE_START:
-                    ack = liveManager.handleStart(token, action.payload());
+                    ack = m_liveManager.handleStart( token, action.payload() );
                     break;
                 case OpButtonActionType::LIVE_UPDATE:
-                    ack = liveManager.handleUpdate(token, action.payload());
+                    ack = m_liveManager.handleUpdate( token, action.payload() );
                     break;
                 case OpButtonActionType::LIVE_STOP:
-                    ack = liveManager.handleStop();
+                    ack = m_liveManager.handleStop();
                     break;
                 case OpButtonActionType::LIVE_TAP:
-                    ack = liveManager.handleTap(action.payload());
+                    ack = m_liveManager.handleTap( action.payload() );
                     break;
                 case OpButtonActionType::LIVE_LONG_PRESS:
-                    ack = liveManager.handleLongPress(action.payload());
+                    ack = m_liveManager.handleLongPress( action.payload() );
                     break;
                 default:
                     break;
+                }
+
+                if( !ack.isNull() && !action.id().empty() && !token.empty() )
+                {
+                    try
+                    {
+                        m_httpClient.acknowledgeAction( token, action.id(), ack );
+                    }
+                    catch( const OpButtonException & e )
+                    {
+                        OpButtonLog::e( "Failed to acknowledge live action: %s", e.what() );
+                    }
+                }
+                continue;
             }
 
-            if (!ack.isNull() && !action.id().empty() && !token.empty()) {
-                try {
-                    httpClient.acknowledgeAction(token, action.id(), ack);
-                } catch (const OpButtonException& e) {
-                    OpButtonLog::e("Failed to acknowledge live action: %s", e.what());
+            bool handled = false;
+            try
+            {
+                handled = m_ui.dispatchAction( action );
+            }
+            catch( ... )
+            {
+                OpButtonLog::e( "Widget callback threw exception" );
+            }
+
+            if( handled == false )
+            {
+                std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+                for( auto * listener : m_actionListeners )
+                {
+                    try
+                    {
+                        listener->onOpButtonActionReceived( action );
+                    }
+                    catch( ... )
+                    {
+                        OpButtonLog::e( "Action listener threw exception" );
+                    }
                 }
             }
-            continue;
-        }
-
-        bool handled = false;
-        try {
-            handled = ui.dispatchAction(action);
-        } catch (...) {
-            OpButtonLog::e("Widget callback threw exception");
-        }
-
-        if (!handled) {
-            std::lock_guard<OpButtonMutex> lock(listenerMutex);
-            for (auto* listener : actionListeners) {
-                try {
-                    listener->onOpButtonActionReceived(action);
-                } catch (...) {
-                    OpButtonLog::e("Action listener threw exception");
-                }
-            }
         }
     }
-}
 
-void OpButtonInstance::interruptibleSleep(int64_t ms) {
-    std::unique_lock<OpButtonMutex> lock(m_sleepMutex);
-    m_sleepCv.wait_for(lock, std::chrono::milliseconds(ms), [this] { return !m_running.load(); });
-}
-
-// ── Connection logic ──
-
-void OpButtonInstance::connectAndWaitApproval() {
-    int64_t retryDelayMs = 2000;
-    const int64_t maxRetryDelayMs = 30000;
-    int retryCount = 0;
-
-    while (m_running.load()) {
-        try {
-            doConnectAndWaitApproval();
-            return;
-        } catch (const OpButtonException& e) {
-            if (e.isUnauthorized()) {
-                OpButtonLog::e("Authentication failed: %s", e.what());
-                setStatus(OpButtonSessionStatus::PL_AUTH_FAILED);
-                m_running.store(false);
-                notifyAuthFailed();
-                return;
-            }
-            if (!e.isNetworkError()) {
-                OpButtonLog::e("Server error, stopping connection: %s", e.what());
-                setStatus(OpButtonSessionStatus::PL_ERROR);
-                m_running.store(false);
-                notifyError(e);
-                return;
-            }
-
-            retryCount++;
-            OpButtonLog::w("Connection attempt %d failed (network): %s, retrying in %lldms",
-                        retryCount, e.what(), static_cast<long long>(retryDelayMs));
-            setStatus(OpButtonSessionStatus::PL_CONNECTING);
-            interruptibleSleep(retryDelayMs);
-            retryDelayMs = std::min(retryDelayMs * 2, maxRetryDelayMs);
-        }
-    }
-}
-
-void OpButtonInstance::doConnectAndWaitApproval() {
-    setStatus(OpButtonSessionStatus::PL_CONNECTING);
-    notifyConnecting();
-
-    OpButtonString deviceId = config.deviceId();
-    OpButtonString deviceName = config.deviceName();
-
-    if (deviceId.empty()) {
-        char compName[256] = {};
-        DWORD size = sizeof(compName);
-        GetComputerNameA(compName, &size);
-        deviceId = compName;
-    }
-    if (deviceName.empty()) {
-        char compName[256] = {};
-        DWORD size = sizeof(compName);
-        GetComputerNameA(compName, &size);
-        deviceName = OpButtonString(compName) + OpButtonString(" (Windows)");
-    }
-
-    auto resp = httpClient.connect(deviceId, deviceName, resolveAllSessionAttributes());
-
-    OpButtonLog::i("Connect request sent, request_id=%s, status=%s",
-                resp.requestId().c_str(), resp.status().c_str());
-
-    if (resp.isApproved() && !resp.sessionToken().empty()) {
-        onApproved(resp.sessionToken());
-        return;
-    }
-
-    if (resp.isRejected()) {
-        onRejected();
-        return;
-    }
-
-    setStatus(OpButtonSessionStatus::PL_WAITING_APPROVAL);
-    notifyWaitingApproval(resp.requestId());
-
-    while (m_running.load()) {
-        interruptibleSleep(config.pollIntervalMs());
-        if (!m_running.load()) return;
-
-        auto pollResp = httpClient.pollStatus(resp.requestId());
-
-        if (pollResp.isApproved() && !pollResp.sessionToken().empty()) {
-            onApproved(pollResp.sessionToken());
-            return;
-        }
-
-        if (pollResp.isRejected()) {
-            onRejected();
-            return;
-        }
-    }
-}
-
-void OpButtonInstance::onApproved(const OpButtonString& token) {
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::interruptibleSleep_( int64_t _ms )
     {
-        std::lock_guard<OpButtonMutex> lock(sessionTokenMutex);
-        sessionToken = token;
+        std::unique_lock<OpButtonMutex> lock( m_sleepMutex );
+        m_sleepCv.wait_for( lock, std::chrono::milliseconds( _ms ), [this]
+                            { return !m_running.load(); } );
     }
-    setStatus(OpButtonSessionStatus::PL_ACTIVE);
-    OpButtonLog::i("Session approved and active");
-    notifySessionStarted(token);
 
-    // Submit initial UI if available
-    if (ui.hasTabs()) {
-        OpButtonJson snapshot = ui.toJson();
-        try {
-            httpClient.submitPanel(token, snapshot);
-            ui.markSent();
-            OpButtonLog::d("Initial UI submitted (revision=%d)", ui.getRevision());
-        } catch (const OpButtonException& e) {
-            OpButtonLog::e("Failed to submit initial UI: %s", e.what());
-            notifyError(e);
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::connectAndWaitApproval_()
+    {
+        int64_t retryDelayMs = 2000;
+        const int64_t maxRetryDelayMs = 30000;
+        int retryCount = 0;
+
+        while( m_running.load() == true )
+        {
+            try
+            {
+                this->doConnectAndWaitApproval_();
+                return;
+            }
+            catch( const OpButtonException & e )
+            {
+                if( e.isUnauthorized() == true )
+                {
+                    OpButtonLog::e( "Authentication failed: %s", e.what() );
+                    this->setStatus_( OpButtonSessionStatus::PL_AUTH_FAILED );
+                    m_running.store( false );
+                    this->notifyAuthFailed_();
+                    return;
+                }
+                if( e.isNetworkError() == false )
+                {
+                    OpButtonLog::e( "Server error, stopping connection: %s", e.what() );
+                    this->setStatus_( OpButtonSessionStatus::PL_ERROR );
+                    m_running.store( false );
+                    this->notifyError_( e );
+                    return;
+                }
+
+                retryCount++;
+                OpButtonLog::w( "Connection attempt %d failed (network): %s, retrying in %lldms", retryCount, e.what(), static_cast<long long>( retryDelayMs ) );
+                this->setStatus_( OpButtonSessionStatus::PL_CONNECTING );
+                this->interruptibleSleep_( retryDelayMs );
+                retryDelayMs = std::min( retryDelayMs * 2, maxRetryDelayMs );
+            }
         }
     }
 
-    // Start action polling thread
-    m_actionPollThread = OpButtonThread([this, token] { actionPollLoop(token); });
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::doConnectAndWaitApproval_()
+    {
+        this->setStatus_( OpButtonSessionStatus::PL_CONNECTING );
+        this->notifyConnecting_();
 
-    // Start metric sampling thread
-    if (config.metricConfig().isEnabled()) {
-        m_metricSampleThread = OpButtonThread([this] { metricSampleLoop(); });
+        OpButtonString deviceId = m_config.deviceId();
+        OpButtonString deviceName = m_config.deviceName();
+
+        if( deviceId.empty() == true )
+        {
+            char compName[256] = {};
+            DWORD size = sizeof( compName );
+            GetComputerNameA( compName, &size );
+            deviceId = compName;
+        }
+        if( deviceName.empty() == true )
+        {
+            char compName[256] = {};
+            DWORD size = sizeof( compName );
+            GetComputerNameA( compName, &size );
+            deviceName = OpButtonString( compName ) + OpButtonString( " (Windows)" );
+        }
+
+        OpButtonConnectResponse resp = m_httpClient.connect( deviceId, deviceName, this->resolveAllSessionAttributes_() );
+
+        OpButtonLog::i( "Connect request sent, request_id=%s, status=%s", resp.requestId().c_str(), resp.status().c_str() );
+
+        if( resp.isApproved() && !resp.sessionToken().empty() )
+        {
+            this->onApproved_( resp.sessionToken() );
+            return;
+        }
+
+        if( resp.isRejected() == true )
+        {
+            this->onRejected_();
+            return;
+        }
+
+        this->setStatus_( OpButtonSessionStatus::PL_WAITING_APPROVAL );
+        this->notifyWaitingApproval_( resp.requestId() );
+
+        while( m_running.load() == true )
+        {
+            this->interruptibleSleep_( m_config.pollIntervalMs() );
+            if( m_running.load() == false )
+            {
+                return;
+            }
+
+            OpButtonConnectResponse pollResp = m_httpClient.pollStatus( resp.requestId() );
+
+            if( pollResp.isApproved() && !pollResp.sessionToken().empty() )
+            {
+                this->onApproved_( pollResp.sessionToken() );
+                return;
+            }
+
+            if( pollResp.isRejected() == true )
+            {
+                this->onRejected_();
+                return;
+            }
+        }
     }
-}
 
-void OpButtonInstance::onRejected() {
-    OpButtonLog::w("Connection request rejected");
-    setStatus(OpButtonSessionStatus::PL_REJECTED);
-    m_running.store(false);
-    notifyRejected();
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::onApproved_( const OpButtonString & _token )
+    {
+        {
+            std::lock_guard<OpButtonMutex> lock( m_sessionTokenMutex );
+            m_sessionToken = _token;
+        }
+        this->setStatus_( OpButtonSessionStatus::PL_ACTIVE );
+        OpButtonLog::i( "Session approved and active" );
+        this->notifySessionStarted_( _token );
 
-// ── Action polling ──
-
-void OpButtonInstance::actionPollLoop(const OpButtonString& token) {
-    while (m_running.load()) {
-        doPollActions(token);
-        interruptibleSleep(m_currentActionPollIntervalMs);
-    }
-}
-
-void OpButtonInstance::doPollActions(const OpButtonString& token) {
-    try {
-        auto changedAttrs = resolveChangedSessionAttributes();
-        auto logChunk = drainLogChunk();
-        auto metricChunk = metrics.drain();
-
-        // Snapshot and submit UI if changed
-        if (ui.hasUnsent()) {
-            OpButtonJson uiSnapshot = ui.toJson();
-            try {
-                httpClient.submitPanel(token, uiSnapshot);
-                ui.markSent();
-                OpButtonLog::d("UI submitted (revision=%d)", ui.getRevision());
-            } catch (const OpButtonException& e) {
-                OpButtonLog::e("Failed to submit UI: %s", e.what());
-                notifyError(e);
+        // Submit initial UI if available
+        if( m_ui.hasTabs() == true )
+        {
+            OpButtonJson snapshot = m_ui.toJson();
+            try
+            {
+                m_httpClient.submitPanel( _token, snapshot );
+                m_ui.markSent();
+                OpButtonLog::d( "Initial UI submitted (revision=%d)", m_ui.getRevision() );
+            }
+            catch( const OpButtonException & e )
+            {
+                OpButtonLog::e( "Failed to submit initial UI: %s", e.what() );
+                this->notifyError_( e );
             }
         }
 
-        const OpButtonMap<OpButtonString, OpButtonJson>* changedPtr = changedAttrs.empty() ? nullptr : &changedAttrs;
-        OpButtonJson json = httpClient.pollActions(token, changedPtr, logChunk, metricChunk);
-        OpButtonJson actionsArr = json.optArray("actions");
+        // Start action polling thread
+        m_actionPollThread = OpButtonThread( [this, _token]
+                                             { this->actionPollLoop_( _token ); } );
 
-        if (actionsArr.length() > 0) {
-            std::lock_guard<OpButtonMutex> lock(m_actionQueueMutex);
-            for (int i = 0; i < actionsArr.length(); ++i) {
-                OpButtonJson actionJson = actionsArr.at(i);
-                if (!actionJson.isNull()) {
-                    m_actionQueue.push_back(OpButtonAction::fromJson(actionJson));
+        // Start metric sampling thread
+        if( m_config.metricConfig().isEnabled() == true )
+        {
+            m_metricSampleThread = OpButtonThread( [this]
+                                                   { this->metricSampleLoop_(); } );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::onRejected_()
+    {
+        OpButtonLog::w( "Connection request rejected" );
+        this->setStatus_( OpButtonSessionStatus::PL_REJECTED );
+        m_running.store( false );
+        this->notifyRejected_();
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::actionPollLoop_( const OpButtonString & _token )
+    {
+        while( m_running.load() == true )
+        {
+            this->doPollActions_( _token );
+            this->interruptibleSleep_( m_currentActionPollIntervalMs );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::doPollActions_( const OpButtonString & _token )
+    {
+        try
+        {
+            OpButtonMap<OpButtonString, OpButtonJson> changedAttrs = this->resolveChangedSessionAttributes_();
+            OpButtonVector<OpButtonLogEntry> logChunk = this->drainLogChunk_();
+            OpButtonVector<OpButtonMetricEntry> metricChunk = m_metrics.drain();
+
+            // Snapshot and submit UI if changed
+            if( m_ui.hasUnsent() == true )
+            {
+                OpButtonJson uiSnapshot = m_ui.toJson();
+                try
+                {
+                    m_httpClient.submitPanel( _token, uiSnapshot );
+                    m_ui.markSent();
+                    OpButtonLog::d( "UI submitted (revision=%d)", m_ui.getRevision() );
+                }
+                catch( const OpButtonException & e )
+                {
+                    OpButtonLog::e( "Failed to submit UI: %s", e.what() );
+                    this->notifyError_( e );
                 }
             }
+
+            const OpButtonMap<OpButtonString, OpButtonJson> * changedPtr = changedAttrs.empty() ? nullptr : &changedAttrs;
+            OpButtonJson json = m_httpClient.pollActions( _token, changedPtr, logChunk, metricChunk );
+            OpButtonJson actionsArr = json.optArray( "actions" );
+
+            if( actionsArr.length() > 0 )
+            {
+                std::lock_guard<OpButtonMutex> lock( m_actionQueueMutex );
+                for( int i = 0; i < actionsArr.length(); ++i )
+                {
+                    OpButtonJson actionJson = actionsArr.at( i );
+                    if( actionJson.isNull() == false )
+                    {
+                        m_actionQueue.push_back( OpButtonAction::fromJson( actionJson ) );
+                    }
+                }
+            }
+
+            if( logChunk.empty() == false )
+            {
+                std::lock_guard<OpButtonMutex> lock( m_logBufferMutex );
+                m_logOverflowWarned = false;
+            }
         }
-
-        if (!logChunk.empty()) {
-            m_logOverflowWarned = false;
-        }
-    } catch (const OpButtonException& e) {
-        if (e.isNetworkError()) {
-            OpButtonLog::w("Network error during action poll, will retry");
-        } else {
-            OpButtonLog::w("Action poll failed with server error, attempting reconnect");
-            attemptReconnect(token);
-        }
-    }
-}
-
-// ── Metric sampling ──
-
-void OpButtonInstance::metricSampleLoop() {
-    while (m_running.load()) {
-        metrics.sample();
-        interruptibleSleep(metrics.sampleIntervalMs);
-    }
-}
-
-// ── Session attributes ──
-
-OpButtonMap<OpButtonString, OpButtonJson> OpButtonInstance::resolveAllSessionAttributes() {
-    const auto& builder = config.sessionAttributes();
-    OpButtonMap<OpButtonString, OpButtonJson> merged = builder.staticAttributes();
-
-    for (const auto& kv : builder.dynamicAttributes()) {
-        try {
-            OpButtonString val = kv.second->getValue();
-            OpButtonJson resolved(val);
-            merged[kv.first] = resolved;
-            m_sessionAttributeCache[kv.first] = resolved;
-        } catch (...) {
-            OpButtonLog::e("Session attribute provider failed: %s", kv.first.c_str());
+        catch( const OpButtonException & e )
+        {
+            if( e.isNetworkError() == true )
+            {
+                OpButtonLog::w( "Network error during action poll, will retry" );
+            }
+            else
+            {
+                OpButtonLog::w( "Action poll failed with server error, attempting reconnect" );
+                this->attemptReconnect_( _token );
+            }
         }
     }
 
-    return merged;
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::metricSampleLoop_()
+    {
+        while( m_running.load() == true )
+        {
+            m_metrics.sample();
+            this->interruptibleSleep_( m_metrics.sampleIntervalMs );
+        }
+    }
 
-OpButtonMap<OpButtonString, OpButtonJson> OpButtonInstance::resolveChangedSessionAttributes() {
-    const auto& dynamicAttrs = config.sessionAttributes().dynamicAttributes();
-    if (dynamicAttrs.empty()) return {};
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonMap<OpButtonString, OpButtonJson> OpButtonInstance::resolveAllSessionAttributes_()
+    {
+        const OpButtonSessionAttributeBuilder & builder = m_config.sessionAttributes();
+        OpButtonMap<OpButtonString, OpButtonJson> merged = builder.staticAttributes();
 
-    OpButtonMap<OpButtonString, OpButtonJson> changed;
-
-    for (const auto& kv : dynamicAttrs) {
-        try {
-            OpButtonString val = kv.second->getValue();
-            OpButtonJson resolved(val);
-            auto cached = m_sessionAttributeCache.find(kv.first);
-            if (cached == m_sessionAttributeCache.end() || cached->second.asString() != val) {
+        for( const auto & kv : builder.dynamicAttributes() )
+        {
+            try
+            {
+                OpButtonString val = kv.second->getValue();
+                OpButtonJson resolved( val );
+                merged[kv.first] = resolved;
                 m_sessionAttributeCache[kv.first] = resolved;
-                changed[kv.first] = resolved;
             }
-        } catch (...) {
-            OpButtonLog::e("Session attribute provider failed: %s", kv.first.c_str());
+            catch( ... )
+            {
+                OpButtonLog::e( "Session attribute provider failed: %s", kv.first.c_str() );
+            }
+        }
+
+        return merged;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonMap<OpButtonString, OpButtonJson> OpButtonInstance::resolveChangedSessionAttributes_()
+    {
+        const OpButtonMap<OpButtonString, OpButtonValueProvider *> & dynamicAttrs = m_config.sessionAttributes().dynamicAttributes();
+        if( dynamicAttrs.empty() == true )
+        {
+            return {};
+        }
+
+        OpButtonMap<OpButtonString, OpButtonJson> changed;
+
+        for( const auto & kv : dynamicAttrs )
+        {
+            try
+            {
+                OpButtonString val = kv.second->getValue();
+                OpButtonJson resolved( val );
+                OpButtonMap<OpButtonString, OpButtonJson>::iterator cached = m_sessionAttributeCache.find( kv.first );
+                if( cached == m_sessionAttributeCache.end() || cached->second.asString() != val )
+                {
+                    m_sessionAttributeCache[kv.first] = resolved;
+                    changed[kv.first] = resolved;
+                }
+            }
+            catch( ... )
+            {
+                OpButtonLog::e( "Session attribute provider failed: %s", kv.first.c_str() );
+            }
+        }
+
+        return changed;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonVector<OpButtonLogEntry> OpButtonInstance::drainLogChunk_()
+    {
+        std::lock_guard<OpButtonMutex> lock( m_logBufferMutex );
+        if( m_logBuffer.empty() == true )
+        {
+            return {};
+        }
+
+        int count = std::min( static_cast<int>( m_logBuffer.size() ), m_config.logConfig().batchSize() );
+        OpButtonVector<OpButtonLogEntry> chunk( m_logBuffer.begin(), m_logBuffer.begin() + count );
+        m_logBuffer.erase( m_logBuffer.begin(), m_logBuffer.begin() + count );
+        return chunk;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::requeueLogs_( const OpButtonVector<OpButtonLogEntry> & _chunk )
+    {
+        if( _chunk.empty() == true )
+        {
+            return;
+        }
+        std::lock_guard<OpButtonMutex> lock( m_logBufferMutex );
+        m_logBuffer.insert( m_logBuffer.begin(), _chunk.begin(), _chunk.end() );
+        while( static_cast<int>( m_logBuffer.size() ) > m_config.logConfig().bufferSize() )
+        {
+            m_logBuffer.pop_back();
         }
     }
 
-    return changed;
-}
-
-// ── Log buffering ──
-
-OpButtonVector<OpButtonLogEntry> OpButtonInstance::drainLogChunk() {
-    std::lock_guard<OpButtonMutex> lock(m_logBufferMutex);
-    if (m_logBuffer.empty()) return {};
-
-    int count = std::min(static_cast<int>(m_logBuffer.size()), config.logConfig().batchSize());
-    OpButtonVector<OpButtonLogEntry> chunk(m_logBuffer.begin(), m_logBuffer.begin() + count);
-    m_logBuffer.erase(m_logBuffer.begin(), m_logBuffer.begin() + count);
-    return chunk;
-}
-
-void OpButtonInstance::requeueLogs(const OpButtonVector<OpButtonLogEntry>& chunk) {
-    if (chunk.empty()) return;
-    std::lock_guard<OpButtonMutex> lock(m_logBufferMutex);
-    m_logBuffer.insert(m_logBuffer.begin(), chunk.begin(), chunk.end());
-    while (static_cast<int>(m_logBuffer.size()) > config.logConfig().bufferSize()) {
-        m_logBuffer.pop_back();
-    }
-}
-
-void OpButtonInstance::flushLogs(const OpButtonString& token) {
-    auto chunk = drainLogChunk();
-    if (chunk.empty()) return;
-    try {
-        httpClient.sendLogs(token, chunk);
-    } catch (const OpButtonException&) {
-        requeueLogs(chunk);
-    }
-}
-
-void OpButtonInstance::flushMetrics(const OpButtonString& token) {
-    auto chunk = metrics.drain();
-    if (chunk.empty()) return;
-    try {
-        httpClient.sendMetrics(token, chunk);
-    } catch (const OpButtonException&) {
-        metrics.requeue(chunk);
-    }
-}
-
-// ── Reconnection ──
-
-void OpButtonInstance::attemptReconnect(const OpButtonString& token) {
-    setStatus(OpButtonSessionStatus::PL_CONNECTING);
-
-    int64_t retryDelay = 2000;
-    const int64_t maxDelay = 30000;
-
-    while (m_running.load()) {
-        interruptibleSleep(retryDelay);
-        if (!m_running.load()) return;
-
-        try {
-            httpClient.pollActions(token, nullptr, {}, {});
-            OpButtonLog::i("Reconnect successful, session still active");
-            setStatus(OpButtonSessionStatus::PL_ACTIVE);
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::flushLogs_( const OpButtonString & _token )
+    {
+        OpButtonVector<OpButtonLogEntry> chunk = this->drainLogChunk_();
+        if( chunk.empty() == true )
+        {
             return;
-        } catch (const OpButtonException& e) {
-            if (e.isNetworkError()) {
-                OpButtonLog::w("Reconnect: no network, retrying in %lldms", static_cast<long long>(retryDelay));
-                retryDelay = std::min(retryDelay * 2, maxDelay);
-            } else {
-                OpButtonLog::w("Session lost (server error), starting fresh connection");
-                resetAndRestart();
+        }
+        try
+        {
+            m_httpClient.sendLogs( _token, chunk );
+        }
+        catch( const OpButtonException & )
+        {
+            this->requeueLogs_( chunk );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::flushMetrics_( const OpButtonString & _token )
+    {
+        OpButtonVector<OpButtonMetricEntry> chunk = m_metrics.drain();
+        if( chunk.empty() == true )
+        {
+            return;
+        }
+        try
+        {
+            m_httpClient.sendMetrics( _token, chunk );
+        }
+        catch( const OpButtonException & )
+        {
+            m_metrics.requeue( chunk );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::attemptReconnect_( const OpButtonString & _token )
+    {
+        this->setStatus_( OpButtonSessionStatus::PL_CONNECTING );
+
+        int64_t retryDelay = 2000;
+        const int64_t maxDelay = 30000;
+
+        while( m_running.load() == true )
+        {
+            this->interruptibleSleep_( retryDelay );
+            if( m_running.load() == false )
+            {
                 return;
             }
+
+            try
+            {
+                m_httpClient.pollActions( _token, nullptr, {}, {} );
+                OpButtonLog::i( "Reconnect successful, session still active" );
+                this->setStatus_( OpButtonSessionStatus::PL_ACTIVE );
+                return;
+            }
+            catch( const OpButtonException & e )
+            {
+                if( e.isNetworkError() == true )
+                {
+                    OpButtonLog::w( "Reconnect: no network, retrying in %lldms", static_cast<long long>( retryDelay ) );
+                    retryDelay = std::min( retryDelay * 2, maxDelay );
+                }
+                else
+                {
+                    OpButtonLog::w( "Session lost (server error), starting fresh connection" );
+                    this->resetAndRestart_();
+                    return;
+                }
+            }
         }
     }
-}
 
-void OpButtonInstance::resetAndRestart() {
-    m_running.store(false);
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::resetAndRestart_()
     {
-        std::lock_guard<OpButtonMutex> lock(sessionTokenMutex);
-        sessionToken.clear();
+        m_running.store( false );
+        {
+            std::lock_guard<OpButtonMutex> lock( m_sessionTokenMutex );
+            m_sessionToken.clear();
+        }
+        this->setStatus_( OpButtonSessionStatus::PL_DISCONNECTED );
+        this->notifySessionClosed_();
+        this->startConnection();
     }
-    setStatus(OpButtonSessionStatus::PL_DISCONNECTED);
-    notifySessionClosed();
-    startConnection();
-}
 
-// ── Listener notifications ──
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::notifyConnecting_()
+    {
+        std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+        for( auto * l : m_sessionListeners )
+        {
+            l->onOpButtonSessionConnecting();
+        }
+    }
 
-void OpButtonInstance::notifyConnecting() {
-    std::lock_guard<OpButtonMutex> lock(listenerMutex);
-    for (auto* l : sessionListeners) l->onOpButtonSessionConnecting();
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::notifyWaitingApproval_( const OpButtonString & _reqId )
+    {
+        std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+        for( auto * l : m_sessionListeners )
+        {
+            l->onOpButtonSessionWaitingApproval( _reqId );
+        }
+    }
 
-void OpButtonInstance::notifyWaitingApproval(const OpButtonString& reqId) {
-    std::lock_guard<OpButtonMutex> lock(listenerMutex);
-    for (auto* l : sessionListeners) l->onOpButtonSessionWaitingApproval(reqId);
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::notifySessionStarted_( const OpButtonString & _token )
+    {
+        std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+        for( auto * l : m_sessionListeners )
+        {
+            l->onOpButtonSessionStarted( _token );
+        }
+    }
 
-void OpButtonInstance::notifySessionStarted(const OpButtonString& token) {
-    std::lock_guard<OpButtonMutex> lock(listenerMutex);
-    for (auto* l : sessionListeners) l->onOpButtonSessionStarted(token);
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::notifySessionClosed_()
+    {
+        std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+        for( auto * l : m_sessionListeners )
+        {
+            l->onOpButtonSessionClosed();
+        }
+    }
 
-void OpButtonInstance::notifySessionClosed() {
-    std::lock_guard<OpButtonMutex> lock(listenerMutex);
-    for (auto* l : sessionListeners) l->onOpButtonSessionClosed();
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::notifyRejected_()
+    {
+        std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+        for( auto * l : m_sessionListeners )
+        {
+            l->onOpButtonSessionRejected();
+        }
+    }
 
-void OpButtonInstance::notifyRejected() {
-    std::lock_guard<OpButtonMutex> lock(listenerMutex);
-    for (auto* l : sessionListeners) l->onOpButtonSessionRejected();
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::notifyAuthFailed_()
+    {
+        std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+        for( auto * l : m_sessionListeners )
+        {
+            l->onOpButtonSessionAuthFailed();
+        }
+    }
 
-void OpButtonInstance::notifyAuthFailed() {
-    std::lock_guard<OpButtonMutex> lock(listenerMutex);
-    for (auto* l : sessionListeners) l->onOpButtonSessionAuthFailed();
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonInstance::notifyError_( const OpButtonException & _e )
+    {
+        std::lock_guard<OpButtonMutex> lock( m_listenerMutex );
+        for( auto * l : m_sessionListeners )
+        {
+            l->onOpButtonSessionError( _e );
+        }
+    }
 
-void OpButtonInstance::notifyError(const OpButtonException& e) {
-    std::lock_guard<OpButtonMutex> lock(listenerMutex);
-    for (auto* l : sessionListeners) l->onOpButtonSessionError(e);
-}
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonSdk::~OpButtonSdk()
+    {
+    }
 
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonSdk::OpButtonSdk()
+    {
+    }
 } // namespace OpButton

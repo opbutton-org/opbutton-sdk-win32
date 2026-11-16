@@ -2,16 +2,17 @@
 
 #include "OpButton/OpButtonTypes.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    enum class OpButtonActionStatus
+    {
+        PENDING,
+        DELIVERED,
+        ACKNOWLEDGED,
+        UNKNOWN
+    };
 
-enum class OpButtonActionStatus {
-    PENDING,
-    DELIVERED,
-    ACKNOWLEDGED,
-    UNKNOWN
-};
-
-const char* opbuttonActionStatusValue(OpButtonActionStatus s);
-OpButtonActionStatus opbuttonActionStatusFromValue(const OpButtonString& v);
+    const char * opbuttonActionStatusValue( OpButtonActionStatus _s );
+    OpButtonActionStatus opbuttonActionStatusFromValue( const OpButtonString & _v );
 
 } // namespace OpButton

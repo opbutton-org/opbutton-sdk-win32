@@ -1,13 +1,16 @@
 #pragma once
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonAction;
 
-class OpButtonAction;
+    class OpButtonActionListener
+    {
+    public:
+        OpButtonActionListener();
+        virtual ~OpButtonActionListener();
 
-class OpButtonActionListener {
-public:
-    virtual ~OpButtonActionListener() = default;
-    virtual void onOpButtonActionReceived(const OpButtonAction& action) = 0;
-};
+        virtual void onOpButtonActionReceived( const OpButtonAction & _action ) = 0;
+    };
 
 } // namespace OpButton

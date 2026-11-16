@@ -5,287 +5,321 @@
 #include "OpButtonWin32.h"
 #include <wininet.h>
 
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
 
-namespace OpButton {
+namespace OpButton
+{
 
-// ── URL parsing helper ──
+    //////////////////////////////////////////////////////////////////////////
+    static void parseUrl( const OpButtonString & _url, OpButtonString & _host, int & _port, OpButtonString & _basePath, bool & _secure )
+    {
+        OpButtonString remainder = _url;
+        _secure = false;
+        _port = 80;
 
-static void parseUrl(const OpButtonString& url, OpButtonString& host, int& port, OpButtonString& basePath, bool& secure) {
-    OpButtonString remainder = url;
-    secure = false;
-    port = 80;
-
-    if (remainder.substr(0, 8) == "https://") {
-        secure = true;
-        port = 443;
-        remainder = remainder.substr(8);
-    } else if (remainder.substr(0, 7) == "http://") {
-        remainder = remainder.substr(7);
-    }
-
-    size_t slashPos = remainder.find('/');
-    OpButtonString hostPort;
-    if (slashPos != OpButtonString::npos) {
-        hostPort = remainder.substr(0, slashPos);
-        basePath = remainder.substr(slashPos);
-    } else {
-        hostPort = remainder;
-        basePath = OpButtonString();
-    }
-
-    // Trim trailing slash from basePath
-    while (!basePath.empty() && basePath.back() == '/') {
-        basePath.pop_back();
-    }
-
-    size_t colonPos = hostPort.find(':');
-    if (colonPos != OpButtonString::npos) {
-        host = hostPort.substr(0, colonPos);
-        port = atoi(hostPort.substr(colonPos + 1).c_str());
-    } else {
-        host = hostPort;
-    }
-}
-
-// ── Constructor / Destructor ──
-
-OpButtonHttpClient::OpButtonHttpClient(const OpButtonString& baseUrl, const OpButtonString& apiToken)
-    : m_port(80), m_secure(false), m_apiToken(apiToken), m_hSession(nullptr), m_hConnect(nullptr) {
-    parseUrl(baseUrl, m_host, m_port, m_basePath, m_secure);
-
-    m_hSession = InternetOpenA("OpButtonSDK/1.0", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
-    if (!m_hSession) {
-        throw OpButtonException("Failed to initialize WinINet session");
-    }
-
-    m_hConnect = InternetConnectA(
-        static_cast<HINTERNET>(m_hSession),
-        m_host.c_str(),
-        static_cast<INTERNET_PORT>(m_port),
-        nullptr, nullptr,
-        INTERNET_SERVICE_HTTP,
-        0, 0);
-    if (!m_hConnect) {
-        InternetCloseHandle(static_cast<HINTERNET>(m_hSession));
-        m_hSession = nullptr;
-        throw OpButtonException("Failed to connect to " + m_host);
-    }
-}
-
-OpButtonHttpClient::~OpButtonHttpClient() {
-    shutdown();
-}
-
-void OpButtonHttpClient::shutdown() {
-    if (m_hConnect) {
-        InternetCloseHandle(static_cast<HINTERNET>(m_hConnect));
-        m_hConnect = nullptr;
-    }
-    if (m_hSession) {
-        InternetCloseHandle(static_cast<HINTERNET>(m_hSession));
-        m_hSession = nullptr;
-    }
-}
-
-// ── Core request execution ──
-
-OpButtonJson OpButtonHttpClient::executeRequest(const OpButtonString& method, const OpButtonString& path,
-                                          const OpButtonString& headerName, const OpButtonString& headerValue,
-                                          const OpButtonString& body) {
-    if (!m_hConnect) {
-        throw OpButtonException("HTTP client is not connected");
-    }
-
-    OpButtonString fullPath = m_basePath + path;
-
-    DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
-    if (m_secure) {
-        flags |= INTERNET_FLAG_SECURE;
-    }
-
-    HINTERNET hRequest = HttpOpenRequestA(
-        static_cast<HINTERNET>(m_hConnect),
-        method.c_str(),
-        fullPath.c_str(),
-        nullptr, nullptr, nullptr,
-        flags, 0);
-
-    if (!hRequest) {
-        throw OpButtonException("Failed to create HTTP request");
-    }
-
-    // Add content type header
-    OpButtonString contentTypeHeader = "Content-Type: application/json; charset=utf-8\r\n";
-    HttpAddRequestHeadersA(hRequest, contentTypeHeader.c_str(), -1, HTTP_ADDREQ_FLAG_ADD);
-
-    // Add custom header (API token or session token)
-    if (!headerName.empty()) {
-        OpButtonString customHeader = headerName + OpButtonString(": ") + headerValue + OpButtonString("\r\n");
-        HttpAddRequestHeadersA(hRequest, customHeader.c_str(), -1, HTTP_ADDREQ_FLAG_ADD);
-    }
-
-    // Send request
-    BOOL result;
-    if (body.empty()) {
-        result = HttpSendRequestA(hRequest, nullptr, 0, nullptr, 0);
-    } else {
-        result = HttpSendRequestA(hRequest, nullptr, 0,
-                                  const_cast<char*>(body.c_str()),
-                                  static_cast<DWORD>(body.size()));
-    }
-
-    if (!result) {
-        DWORD err = GetLastError();
-        InternetCloseHandle(hRequest);
-        throw OpButtonException("Network error: WinINet error code " + opbuttonToString(static_cast<unsigned long>(err)));
-    }
-
-    // Read status code
-    DWORD statusCode = 0;
-    DWORD statusCodeSize = sizeof(statusCode);
-    HttpQueryInfoA(hRequest, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER,
-                   &statusCode, &statusCodeSize, nullptr);
-
-    // Read response body
-    OpButtonString responseBody;
-    char readBuf[4096];
-    DWORD bytesRead = 0;
-    while (InternetReadFile(hRequest, readBuf, sizeof(readBuf), &bytesRead) && bytesRead > 0) {
-        responseBody.append(readBuf, bytesRead);
-    }
-
-    InternetCloseHandle(hRequest);
-
-    if (statusCode < 200 || statusCode >= 300) {
-        OpButtonString detail = responseBody;
-        OpButtonJson errorJson = OpButtonJson::parse(responseBody);
-        OpButtonString detailStr = errorJson.optString("detail");
-        if (!detailStr.empty()) {
-            detail = detailStr;
+        if( remainder.substr( 0, 8 ) == "https://" )
+        {
+            _secure = true;
+            _port = 443;
+            remainder = remainder.substr( 8 );
         }
-        throw OpButtonException(static_cast<int>(statusCode),
-                             OpButtonString("HTTP ") + opbuttonToString(statusCode) + OpButtonString(": ") + detail);
-    }
-
-    if (responseBody.empty()) return OpButtonJson::object();
-    return OpButtonJson::parse(responseBody);
-}
-
-// ── Client endpoints ──
-
-OpButtonConnectResponse OpButtonHttpClient::connect(const OpButtonString& deviceId, const OpButtonString& deviceName,
-                                               const OpButtonMap<OpButtonString, OpButtonJson>& sessionAttributes) {
-    OpButtonJson body = OpButtonJson::object()
-        .put("device_id", OpButtonJson(deviceId))
-        .put("device_name", OpButtonJson(deviceName));
-
-    if (!sessionAttributes.empty()) {
-        OpButtonJson attrs = OpButtonJson::object();
-        for (const auto& kv : sessionAttributes) {
-            attrs.put(kv.first, kv.second);
+        else if( remainder.substr( 0, 7 ) == "http://" )
+        {
+            remainder = remainder.substr( 7 );
         }
-        body.put("session_attributes", attrs);
-    }
 
-    OpButtonJson resp = executeRequest("POST", "/api/client/connect", "X-Api-Token", m_apiToken, body.toString());
-    return OpButtonConnectResponse::fromJson(resp);
-}
-
-OpButtonConnectResponse OpButtonHttpClient::pollStatus(const OpButtonString& requestId) {
-    OpButtonJson resp = executeRequest("GET", "/api/client/poll-status/" + requestId,
-                                    "X-Api-Token", m_apiToken, "");
-    return OpButtonConnectResponse::fromJson(resp);
-}
-
-bool OpButtonHttpClient::closeSession(const OpButtonString& sessionToken) {
-    OpButtonJson resp = executeRequest("POST", "/api/client/session/close",
-                                    "X-Session-Token", sessionToken, "");
-    return resp.optBool("ok", false);
-}
-
-OpButtonJson OpButtonHttpClient::submitPanel(const OpButtonString& sessionToken, const OpButtonJson& layout) {
-    OpButtonJson body = OpButtonJson::object().put("layout", layout);
-    return executeRequest("POST", "/api/client/session/panel",
-                          "X-Session-Token", sessionToken, body.toString());
-}
-
-OpButtonJson OpButtonHttpClient::pollActions(const OpButtonString& sessionToken,
-                                        const OpButtonMap<OpButtonString, OpButtonJson>* changedAttributes,
-                                        const OpButtonVector<OpButtonLogEntry>& logs,
-                                        const OpButtonVector<OpButtonMetricEntry>& metrics) {
-    OpButtonJson body = OpButtonJson::object();
-
-    if (changedAttributes && !changedAttributes->empty()) {
-        OpButtonJson attrs = OpButtonJson::object();
-        for (const auto& kv : *changedAttributes) {
-            attrs.put(kv.first, kv.second);
+        size_t slashPos = remainder.find( '/' );
+        OpButtonString hostPort;
+        if( slashPos != OpButtonString::npos )
+        {
+            hostPort = remainder.substr( 0, slashPos );
+            _basePath = remainder.substr( slashPos );
         }
-        body.put("session_attributes", attrs);
+        else
+        {
+            hostPort = remainder;
+            _basePath = OpButtonString();
+        }
+
+        // Trim trailing slash from basePath
+        while( !_basePath.empty() && _basePath.back() == '/' )
+        {
+            _basePath.pop_back();
+        }
+
+        size_t colonPos = hostPort.find( ':' );
+        if( colonPos != OpButtonString::npos )
+        {
+            _host = hostPort.substr( 0, colonPos );
+            _port = atoi( hostPort.substr( colonPos + 1 ).c_str() );
+        }
+        else
+        {
+            _host = hostPort;
+        }
     }
 
-    if (!logs.empty()) {
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonHttpClient::OpButtonHttpClient( const OpButtonString & _baseUrl, const OpButtonString & _apiToken )
+        : m_port( 80 )
+        , m_secure( false )
+        , m_apiToken( _apiToken )
+        , m_hSession( nullptr )
+        , m_hConnect( nullptr )
+    {
+        parseUrl( _baseUrl, m_host, m_port, m_basePath, m_secure );
+
+        m_hSession = InternetOpenA( "OpButtonSDK/1.0", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0 );
+        if( m_hSession == nullptr )
+        {
+            throw OpButtonException( "Failed to initialize WinINet session" );
+        }
+
+        m_hConnect = InternetConnectA( static_cast<HINTERNET>( m_hSession ), m_host.c_str(), static_cast<INTERNET_PORT>( m_port ), nullptr, nullptr, INTERNET_SERVICE_HTTP, 0, 0 );
+        if( m_hConnect == nullptr )
+        {
+            InternetCloseHandle( static_cast<HINTERNET>( m_hSession ) );
+            m_hSession = nullptr;
+            throw OpButtonException( "Failed to connect to " + m_host );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonHttpClient::~OpButtonHttpClient()
+    {
+        this->shutdown();
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonHttpClient::shutdown()
+    {
+        if( m_hConnect != nullptr )
+        {
+            InternetCloseHandle( static_cast<HINTERNET>( m_hConnect ) );
+            m_hConnect = nullptr;
+        }
+        if( m_hSession != nullptr )
+        {
+            InternetCloseHandle( static_cast<HINTERNET>( m_hSession ) );
+            m_hSession = nullptr;
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonJson OpButtonHttpClient::executeRequest_( const OpButtonString & _method, const OpButtonString & _path, const OpButtonString & _headerName, const OpButtonString & _headerValue, const OpButtonString & _body )
+    {
+        if( m_hConnect == nullptr )
+        {
+            throw OpButtonException( "HTTP client is not connected" );
+        }
+
+        OpButtonString fullPath = m_basePath + _path;
+
+        DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
+        if( m_secure == true )
+        {
+            flags |= INTERNET_FLAG_SECURE;
+        }
+
+        HINTERNET hRequest = HttpOpenRequestA( static_cast<HINTERNET>( m_hConnect ), _method.c_str(), fullPath.c_str(), nullptr, nullptr, nullptr, flags, 0 );
+
+        if( hRequest == nullptr )
+        {
+            throw OpButtonException( "Failed to create HTTP request" );
+        }
+
+        // Add content type header
+        OpButtonString contentTypeHeader = "Content-Type: application/json; charset=utf-8\r\n";
+        HttpAddRequestHeadersA( hRequest, contentTypeHeader.c_str(), -1, HTTP_ADDREQ_FLAG_ADD );
+
+        // Add custom header (API token or session token)
+        if( _headerName.empty() == false )
+        {
+            OpButtonString customHeader = _headerName + OpButtonString( ": " ) + _headerValue + OpButtonString( "\r\n" );
+            HttpAddRequestHeadersA( hRequest, customHeader.c_str(), -1, HTTP_ADDREQ_FLAG_ADD );
+        }
+
+        // Send request
+        BOOL result;
+        if( _body.empty() == true )
+        {
+            result = HttpSendRequestA( hRequest, nullptr, 0, nullptr, 0 );
+        }
+        else
+        {
+            result = HttpSendRequestA( hRequest, nullptr, 0, const_cast<char *>( _body.c_str() ), static_cast<DWORD>( _body.size() ) );
+        }
+
+        if( result == 0 )
+        {
+            DWORD err = GetLastError();
+            InternetCloseHandle( hRequest );
+            throw OpButtonException( "Network error: WinINet error code " + opbuttonToString( static_cast<unsigned long>( err ) ) );
+        }
+
+        // Read status code
+        DWORD statusCode = 0;
+        DWORD statusCodeSize = sizeof( statusCode );
+        HttpQueryInfoA( hRequest, HTTP_QUERY_STATUS_CODE | HTTP_QUERY_FLAG_NUMBER, &statusCode, &statusCodeSize, nullptr );
+
+        // Read response body
+        OpButtonString responseBody;
+        char readBuf[4096];
+        DWORD bytesRead = 0;
+        while( InternetReadFile( hRequest, readBuf, sizeof( readBuf ), &bytesRead ) && bytesRead > 0 )
+        {
+            responseBody.append( readBuf, bytesRead );
+        }
+
+        InternetCloseHandle( hRequest );
+
+        if( statusCode < 200 || statusCode >= 300 )
+        {
+            OpButtonString detail = responseBody;
+            OpButtonJson errorJson = OpButtonJson::parse( responseBody );
+            OpButtonString detailStr = errorJson.optString( "detail" );
+            if( detailStr.empty() == false )
+            {
+                detail = detailStr;
+            }
+            throw OpButtonException( static_cast<int>( statusCode ), OpButtonString( "HTTP " ) + opbuttonToString( statusCode ) + OpButtonString( ": " ) + detail );
+        }
+
+        if( responseBody.empty() == true )
+        {
+            return OpButtonJson::object();
+        }
+        return OpButtonJson::parse( responseBody );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonConnectResponse OpButtonHttpClient::connect( const OpButtonString & _deviceId, const OpButtonString & _deviceName, const OpButtonMap<OpButtonString, OpButtonJson> & _sessionAttributes )
+    {
+        OpButtonJson body = OpButtonJson::object().put( "device_id", OpButtonJson( _deviceId ) ).put( "device_name", OpButtonJson( _deviceName ) );
+
+        if( _sessionAttributes.empty() == false )
+        {
+            OpButtonJson attrs = OpButtonJson::object();
+            for( const auto & kv : _sessionAttributes )
+            {
+                attrs.put( kv.first, kv.second );
+            }
+            body.put( "session_attributes", attrs );
+        }
+
+        OpButtonJson resp = this->executeRequest_( "POST", "/api/client/connect", "X-Api-Token", m_apiToken, body.toString() );
+        return OpButtonConnectResponse::fromJson( resp );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonConnectResponse OpButtonHttpClient::pollStatus( const OpButtonString & _requestId )
+    {
+        OpButtonJson resp = this->executeRequest_( "GET", "/api/client/poll-status/" + _requestId, "X-Api-Token", m_apiToken, "" );
+        return OpButtonConnectResponse::fromJson( resp );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    bool OpButtonHttpClient::closeSession( const OpButtonString & _sessionToken )
+    {
+        OpButtonJson resp = this->executeRequest_( "POST", "/api/client/session/close", "X-Session-Token", _sessionToken, "" );
+        return resp.optBool( "ok", false );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonJson OpButtonHttpClient::submitPanel( const OpButtonString & _sessionToken, const OpButtonJson & _layout )
+    {
+        OpButtonJson body = OpButtonJson::object().put( "layout", _layout );
+        return this->executeRequest_( "POST", "/api/client/session/panel", "X-Session-Token", _sessionToken, body.toString() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonJson OpButtonHttpClient::pollActions( const OpButtonString & _sessionToken, const OpButtonMap<OpButtonString, OpButtonJson> * _changedAttributes, const OpButtonVector<OpButtonLogEntry> & _logs, const OpButtonVector<OpButtonMetricEntry> & _metrics )
+    {
+        OpButtonJson body = OpButtonJson::object();
+
+        if( _changedAttributes && !_changedAttributes->empty() )
+        {
+            OpButtonJson attrs = OpButtonJson::object();
+            for( const auto & kv : *_changedAttributes )
+            {
+                attrs.put( kv.first, kv.second );
+            }
+            body.put( "session_attributes", attrs );
+        }
+
+        if( _logs.empty() == false )
+        {
+            OpButtonJson logsArr = OpButtonJson::array();
+            for( const auto & entry : _logs )
+            {
+                logsArr.add( entry.toJson() );
+            }
+            body.put( "logs", logsArr );
+        }
+
+        if( _metrics.empty() == false )
+        {
+            OpButtonJson metricsArr = OpButtonJson::array();
+            for( const auto & entry : _metrics )
+            {
+                metricsArr.add( entry.toJson() );
+            }
+            body.put( "metrics", metricsArr );
+        }
+
+        OpButtonString bodyStr = ( body.objectSize() > 0 ) ? body.toString() : OpButtonString();
+        return this->executeRequest_( "POST", "/api/client/session/actions/poll", "X-Session-Token", _sessionToken, bodyStr );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonHttpClient::acknowledgeAction( const OpButtonString & _sessionToken, const OpButtonString & _actionId, const OpButtonJson & _ackPayload )
+    {
+        OpButtonJson body = OpButtonJson::object().put( "action_id", OpButtonJson( _actionId ) ).put( "ack_payload", _ackPayload.isNull() ? OpButtonJson::object() : _ackPayload );
+
+        this->executeRequest_( "POST", "/api/client/session/actions/ack", "X-Session-Token", _sessionToken, body.toString() );
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonHttpClient::sendLogs( const OpButtonString & _sessionToken, const OpButtonVector<OpButtonLogEntry> & _logs )
+    {
+        if( _logs.empty() == true )
+        {
+            return;
+        }
+
         OpButtonJson logsArr = OpButtonJson::array();
-        for (const auto& entry : logs) {
-            logsArr.add(entry.toJson());
+        for( const auto & entry : _logs )
+        {
+            logsArr.add( entry.toJson() );
         }
-        body.put("logs", logsArr);
+
+        OpButtonJson body = OpButtonJson::object().put( "logs", logsArr );
+        this->executeRequest_( "POST", "/api/client/session/logs", "X-Session-Token", _sessionToken, body.toString() );
     }
 
-    if (!metrics.empty()) {
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonHttpClient::sendMetrics( const OpButtonString & _sessionToken, const OpButtonVector<OpButtonMetricEntry> & _metrics )
+    {
+        if( _metrics.empty() == true )
+        {
+            return;
+        }
+
         OpButtonJson metricsArr = OpButtonJson::array();
-        for (const auto& entry : metrics) {
-            metricsArr.add(entry.toJson());
+        for( const auto & entry : _metrics )
+        {
+            metricsArr.add( entry.toJson() );
         }
-        body.put("metrics", metricsArr);
+
+        OpButtonJson body = OpButtonJson::object().put( "metrics", metricsArr );
+        this->executeRequest_( "POST", "/api/client/session/metrics", "X-Session-Token", _sessionToken, body.toString() );
     }
 
-    OpButtonString bodyStr = (body.objectSize() > 0) ? body.toString() : OpButtonString();
-    return executeRequest("POST", "/api/client/session/actions/poll",
-                          "X-Session-Token", sessionToken, bodyStr);
-}
-
-void OpButtonHttpClient::acknowledgeAction(const OpButtonString& sessionToken,
-                                         const OpButtonString& actionId,
-                                         const OpButtonJson& ackPayload) {
-    OpButtonJson body = OpButtonJson::object()
-        .put("action_id", OpButtonJson(actionId))
-        .put("ack_payload", ackPayload.isNull() ? OpButtonJson::object() : ackPayload);
-
-    executeRequest("POST", "/api/client/session/actions/ack",
-                   "X-Session-Token", sessionToken, body.toString());
-}
-
-void OpButtonHttpClient::sendLogs(const OpButtonString& sessionToken, const OpButtonVector<OpButtonLogEntry>& logs) {
-    if (logs.empty()) return;
-
-    OpButtonJson logsArr = OpButtonJson::array();
-    for (const auto& entry : logs) {
-        logsArr.add(entry.toJson());
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonJson OpButtonHttpClient::getLivePublisherState( const OpButtonString & _sessionToken )
+    {
+        return this->executeRequest_( "GET", "/api/client/session/live/publisher", "X-Session-Token", _sessionToken, "" );
     }
-
-    OpButtonJson body = OpButtonJson::object().put("logs", logsArr);
-    executeRequest("POST", "/api/client/session/logs",
-                   "X-Session-Token", sessionToken, body.toString());
-}
-
-void OpButtonHttpClient::sendMetrics(const OpButtonString& sessionToken, const OpButtonVector<OpButtonMetricEntry>& metrics) {
-    if (metrics.empty()) return;
-
-    OpButtonJson metricsArr = OpButtonJson::array();
-    for (const auto& entry : metrics) {
-        metricsArr.add(entry.toJson());
-    }
-
-    OpButtonJson body = OpButtonJson::object().put("metrics", metricsArr);
-    executeRequest("POST", "/api/client/session/metrics",
-                   "X-Session-Token", sessionToken, body.toString());
-}
-
-OpButtonJson OpButtonHttpClient::getLivePublisherState(const OpButtonString& sessionToken) {
-    return executeRequest("GET", "/api/client/session/live/publisher",
-                          "X-Session-Token", sessionToken, "");
-}
 
 } // namespace OpButton

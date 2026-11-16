@@ -1,0 +1,14 @@
+#include "OpButton/OpButtonLayoutChild.h"
+
+namespace OpButton
+{
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLayoutChild::~OpButtonLayoutChild()
+    {
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLayoutChild::OpButtonLayoutChild()
+    {
+    }
+} // namespace OpButton

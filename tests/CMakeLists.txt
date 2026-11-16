@@ -1,0 +1,40 @@
+cmake_minimum_required(VERSION 3.24)
+project(OpButtonUITests LANGUAGES CXX)
+
+enable_testing()
+find_package(Threads REQUIRED)
+
+set(OPBUTTON_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/..")
+
+file(GLOB OPBUTTON_PORTABLE_SOURCES CONFIGURE_DEPENDS "${OPBUTTON_SOURCE_DIR}/src/*.cpp")
+list(FILTER OPBUTTON_PORTABLE_SOURCES EXCLUDE REGEX "OpButton(Sdk|HttpClient|DefaultMetricCollector|LiveManager|LiveKitPublisher)\\.cpp$")
+add_executable(opbutton_ui_tests OpButtonUITests.cpp ${OPBUTTON_PORTABLE_SOURCES})
+
+target_include_directories(opbutton_ui_tests PRIVATE ${OPBUTTON_SOURCE_DIR}/include)
+target_compile_features(opbutton_ui_tests PRIVATE cxx_std_17)
+target_link_libraries(opbutton_ui_tests PRIVATE Threads::Threads)
+
+if(MSVC)
+    target_compile_options(opbutton_ui_tests PRIVATE /W4 /WX)
+else()
+    target_compile_options(opbutton_ui_tests PRIVATE -Wall -Wextra -Werror)
+endif()
+
+foreach(CASE remove add replace state lifetime destroy raw exception ids concurrent)
+    add_test(NAME ui_${CASE} COMMAND opbutton_ui_tests ${CASE})
+    set_tests_properties(ui_${CASE} PROPERTIES TIMEOUT 10)
+endforeach()
+
+add_executable(opbutton_ownership_tests OpButtonOwnershipTests.cpp ${OPBUTTON_PORTABLE_SOURCES})
+target_include_directories(opbutton_ownership_tests PRIVATE ${OPBUTTON_SOURCE_DIR}/include)
+target_compile_features(opbutton_ownership_tests PRIVATE cxx_std_17)
+target_link_libraries(opbutton_ownership_tests PRIVATE Threads::Threads)
+if(MSVC)
+    target_compile_options(opbutton_ownership_tests PRIVATE /W4 /WX)
+else()
+    target_compile_options(opbutton_ownership_tests PRIVATE -Wall -Wextra -Werror)
+endif()
+foreach(CASE allocator intrusive widgets)
+    add_test(NAME ownership_${CASE} COMMAND opbutton_ownership_tests ${CASE})
+    set_tests_properties(ownership_${CASE} PROPERTIES TIMEOUT 10)
+endforeach()

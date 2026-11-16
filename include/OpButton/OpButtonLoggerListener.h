@@ -3,12 +3,15 @@
 #include "OpButton/OpButtonLogLevel.h"
 #include "OpButton/OpButtonTypes.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonLoggerListener
+    {
+    public:
+        OpButtonLoggerListener();
+        virtual ~OpButtonLoggerListener();
 
-class OpButtonLoggerListener {
-public:
-    virtual ~OpButtonLoggerListener() = default;
-    virtual void onOpButtonLoggerMessage(OpButtonLogLevel level, const OpButtonString& tag, const OpButtonString& message) = 0;
-};
+        virtual void onOpButtonLoggerMessage( OpButtonLogLevel _level, const OpButtonString & _tag, const OpButtonString & _message ) = 0;
+    };
 
 } // namespace OpButton

@@ -2,16 +2,18 @@
 
 #include "OpButton/OpButtonWidget.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonLabel : public OpButtonWidget
+    {
+    public:
+        OpButtonLabel( OpButtonUI & _ui, const OpButtonString & _text );
+        ~OpButtonLabel() override;
 
-class OpButtonLabel : public OpButtonWidget {
-public:
-    OpButtonLabel(OpButtonUI& ui, const OpButtonString& text);
+        OpButtonLabel & text( const OpButtonString & _t );
+        OpButtonLabel & color( const OpButtonString & _c );
 
-    OpButtonLabel& text(const OpButtonString& t);
-    OpButtonLabel& color(const OpButtonString& c);
-
-    OpButtonLabel& textProvider(OpButtonValueProvider* provider);
-};
+        OpButtonLabel & textProvider( OpButtonValueProvider * _provider );
+    };
 
 } // namespace OpButton

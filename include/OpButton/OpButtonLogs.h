@@ -2,13 +2,15 @@
 
 #include "OpButton/OpButtonWidget.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonLogs : public OpButtonWidget
+    {
+    public:
+        OpButtonLogs( OpButtonUI & _ui, const OpButtonString & _label );
+        ~OpButtonLogs() override;
 
-class OpButtonLogs : public OpButtonWidget {
-public:
-    OpButtonLogs(OpButtonUI& ui, const OpButtonString& label);
-
-    OpButtonLogs& maxLines(int v);
-};
+        OpButtonLogs & maxLines( int _v );
+    };
 
 } // namespace OpButton

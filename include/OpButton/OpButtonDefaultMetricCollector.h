@@ -5,20 +5,22 @@
 #include "OpButton/OpButtonMetricType.h"
 #include <cstdint>
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonDefaultMetricCollector : public OpButtonMetricCollector
+    {
+    public:
+        OpButtonDefaultMetricCollector();
+        ~OpButtonDefaultMetricCollector() override;
+        void collect( OpButtonVector<OpButtonMetricEntry> & _out ) override;
 
-class OpButtonDefaultMetricCollector : public OpButtonMetricCollector {
-public:
-    OpButtonDefaultMetricCollector();
-    void collect(OpButtonVector<OpButtonMetricEntry>& out) override;
+    private:
+        void collectMemory_( OpButtonVector<OpButtonMetricEntry> & _out );
+        void collectCpu_( OpButtonVector<OpButtonMetricEntry> & _out );
 
-private:
-    void collectMemory(OpButtonVector<OpButtonMetricEntry>& out);
-    void collectCpu(OpButtonVector<OpButtonMetricEntry>& out);
-
-    int64_t m_prevCpuKernel = 0;
-    int64_t m_prevCpuUser = 0;
-    int64_t m_prevCpuTime = 0;
-};
+        int64_t m_prevCpuKernel = 0;
+        int64_t m_prevCpuUser = 0;
+        int64_t m_prevCpuTime = 0;
+    };
 
 } // namespace OpButton

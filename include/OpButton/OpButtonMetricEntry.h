@@ -2,26 +2,28 @@
 
 #include "OpButton/OpButtonJson.h"
 #include "OpButton/OpButtonMetricType.h"
-#include <cstdint>
 #include <chrono>
+#include <cstdint>
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonMetricEntry
+    {
+    public:
+        OpButtonMetricEntry( const OpButtonMetricType & _type, double _value );
+        ~OpButtonMetricEntry();
+        OpButtonMetricEntry( const OpButtonMetricType & _type, double _value, int64_t _timestampMs );
 
-class OpButtonMetricEntry {
-public:
-    OpButtonMetricEntry(const OpButtonMetricType& type, double value);
-    OpButtonMetricEntry(const OpButtonMetricType& type, double value, int64_t timestampMs);
+        const OpButtonMetricType & type() const;
+        double value() const;
+        int64_t timestampMs() const;
 
-    const OpButtonMetricType& type() const;
-    double value() const;
-    int64_t timestampMs() const;
+        OpButtonJson toJson() const;
 
-    OpButtonJson toJson() const;
-
-private:
-    OpButtonMetricType m_type;
-    double m_value;
-    int64_t m_timestampMs;
-};
+    private:
+        OpButtonMetricType m_type;
+        double m_value;
+        int64_t m_timestampMs;
+    };
 
 } // namespace OpButton

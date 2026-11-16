@@ -2,19 +2,22 @@
 
 #include "OpButton/OpButtonValueProvider.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonLogAttributeBuilder
+    {
+    public:
+        OpButtonLogAttributeBuilder();
+        ~OpButtonLogAttributeBuilder();
+        OpButtonLogAttributeBuilder & put( const OpButtonString & _key, const OpButtonString & _value );
+        OpButtonLogAttributeBuilder & putProvider( const OpButtonString & _key, OpButtonValueProvider * _provider );
 
-class OpButtonLogAttributeBuilder {
-public:
-    OpButtonLogAttributeBuilder& put(const OpButtonString& key, const OpButtonString& value);
-    OpButtonLogAttributeBuilder& putProvider(const OpButtonString& key, OpButtonValueProvider* provider);
+        const OpButtonMap<OpButtonString, OpButtonString> & staticAttributes() const;
+        const OpButtonMap<OpButtonString, OpButtonValueProvider *> & dynamicAttributes() const;
 
-    const OpButtonMap<OpButtonString, OpButtonString>& staticAttributes() const;
-    const OpButtonMap<OpButtonString, OpButtonValueProvider*>& dynamicAttributes() const;
-
-private:
-    OpButtonMap<OpButtonString, OpButtonString> m_staticAttributes;
-    OpButtonMap<OpButtonString, OpButtonValueProvider*> m_dynamicAttributes;
-};
+    private:
+        OpButtonMap<OpButtonString, OpButtonString> m_staticAttributes;
+        OpButtonMap<OpButtonString, OpButtonValueProvider *> m_dynamicAttributes;
+    };
 
 } // namespace OpButton

@@ -1,36 +1,32 @@
 #pragma once
 
 #include "OpButton/OpButtonAllocator.h"
-
 #include <cstddef>
 
-namespace OpButton {
+namespace OpButton
+{
+    template<class T>
+    class OpButtonStlAllocator
+    {
+    public:
+        using value_type = T;
+        using size_type = size_t;
+        using difference_type = ptrdiff_t;
 
-template<class T>
-class OpButtonStlAllocator {
-public:
-    using value_type = T;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
+        OpButtonStlAllocator() noexcept;
+        ~OpButtonStlAllocator();
+        template<class U>
+        OpButtonStlAllocator( const OpButtonStlAllocator<U> & _other ) noexcept;
 
-    OpButtonStlAllocator() noexcept = default;
+        T * allocate( size_type _count );
+        void deallocate( T * _memory, size_type _count ) noexcept;
 
-    template<class U>
-    OpButtonStlAllocator(const OpButtonStlAllocator<U>&) noexcept {}
+        template<class U>
+        bool operator==( const OpButtonStlAllocator<U> & _other ) const noexcept;
 
-    T* allocate(size_type n) {
-        return static_cast<T*>(opbutton_malloc(n * sizeof(T)));
-    }
-
-    void deallocate(T* p, size_type) noexcept {
-        opbutton_free(p);
-    }
-
-    template<class U>
-    bool operator==(const OpButtonStlAllocator<U>&) const noexcept { return true; }
-
-    template<class U>
-    bool operator!=(const OpButtonStlAllocator<U>&) const noexcept { return false; }
-};
-
+        template<class U>
+        bool operator!=( const OpButtonStlAllocator<U> & _other ) const noexcept;
+    };
 } // namespace OpButton
+
+#include "OpButton/OpButtonStlAllocator.inl"

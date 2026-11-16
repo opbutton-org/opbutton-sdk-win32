@@ -3,18 +3,20 @@
 #include "OpButton/OpButtonWidget.h"
 #include "OpButton/OpButtonWidgetCallback.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonButton : public OpButtonWidget
+    {
+    public:
+        OpButtonButton( OpButtonUI & _ui, const OpButtonString & _label );
+        ~OpButtonButton() override;
 
-class OpButtonButton : public OpButtonWidget {
-public:
-    OpButtonButton(OpButtonUI& ui, const OpButtonString& label);
+        OpButtonButton & variant( const OpButtonString & _v );
+        OpButtonButton & color( const OpButtonString & _c );
+        OpButtonButton & disabled( bool _d );
 
-    OpButtonButton& variant(const OpButtonString& v);
-    OpButtonButton& color(const OpButtonString& c);
-    OpButtonButton& disabled(bool d);
-
-    OpButtonButton& onClick(OpButtonWidgetCallback* callback);
-    OpButtonButton& onClick(OpButtonWidgetCallbackFunc callback);
-};
+        OpButtonButton & onClick( OpButtonWidgetCallback * _callback );
+        OpButtonButton & onClick( OpButtonWidgetCallbackFunc _callback );
+    };
 
 } // namespace OpButton

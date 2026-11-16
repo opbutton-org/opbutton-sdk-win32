@@ -2,12 +2,15 @@
 
 #include "OpButton/OpButtonTypes.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonValueProvider
+    {
+    public:
+        OpButtonValueProvider();
+        virtual ~OpButtonValueProvider();
 
-class OpButtonValueProvider {
-public:
-    virtual ~OpButtonValueProvider() = default;
-    virtual OpButtonString getValue() = 0;
-};
+        virtual OpButtonString getValue() = 0;
+    };
 
 } // namespace OpButton

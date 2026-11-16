@@ -1,41 +1,41 @@
 #pragma once
 
-#include "OpButton/OpButtonLayoutChild.h"
 #include "OpButton/OpButtonJson.h"
+#include "OpButton/OpButtonLayoutChild.h"
 #include "OpButton/OpButtonValueProvider.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonUI;
 
-class OpButtonUI;
+    class OpButtonWidget : public OpButtonLayoutChild
+    {
+    public:
+        OpButtonWidget( OpButtonUI & _ui, const OpButtonString & _type );
+        ~OpButtonWidget() override;
+        int internalId() const;
+        const OpButtonString & publicId() const;
+        void setId( const OpButtonString & _id );
+        const OpButtonString & widgetType() const;
 
-class OpButtonWidget : public OpButtonLayoutChild {
-public:
-    OpButtonWidget(OpButtonUI& ui, const OpButtonString& type);
-    ~OpButtonWidget() override = default;
+        bool pollProvider();
+        OpButtonJson toJson() const override;
 
-    int internalId() const;
-    const OpButtonString& publicId() const;
-    void setId(const OpButtonString& id);
-    const OpButtonString& widgetType() const;
+    protected:
+        void put_( const OpButtonString & _key, const OpButtonJson & _value );
+        void setProvider_( const OpButtonString & _key, OpButtonValueProvider * _provider );
 
-    bool pollProvider();
-    OpButtonJson toJson() const override;
+        OpButtonUI & m_ui;
 
-protected:
-    void put(const OpButtonString& key, const OpButtonJson& value);
-    void setProvider(const OpButtonString& key, OpButtonValueProvider* provider);
+    private:
+        int m_internalId;
+        OpButtonString m_publicId;
+        OpButtonString m_type;
+        OpButtonJson m_json;
 
-    OpButtonUI& m_ui;
-
-private:
-    int m_internalId;
-    OpButtonString m_publicId;
-    OpButtonString m_type;
-    OpButtonJson m_json;
-
-    OpButtonString m_providerKey;
-    OpButtonValueProvider* m_provider = nullptr;
-    OpButtonString m_cachedValue;
-};
+        OpButtonString m_providerKey;
+        OpButtonValueProvider * m_provider = nullptr;
+        OpButtonString m_cachedValue;
+    };
 
 } // namespace OpButton

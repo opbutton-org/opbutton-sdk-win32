@@ -2,16 +2,19 @@
 
 #include "OpButton/OpButtonTypes.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonAction;
 
-class OpButtonAction;
+    class OpButtonWidgetCallback
+    {
+    public:
+        OpButtonWidgetCallback();
+        virtual ~OpButtonWidgetCallback();
 
-class OpButtonWidgetCallback {
-public:
-    virtual ~OpButtonWidgetCallback() = default;
-    virtual void onOpButtonWidgetAction(const OpButtonAction& action) = 0;
-};
+        virtual void onOpButtonWidgetAction( const OpButtonAction & _action ) = 0;
+    };
 
-using OpButtonWidgetCallbackFunc = OpButtonFunction<void(const OpButtonAction&)>;
+    using OpButtonWidgetCallbackFunc = OpButtonFunction<void( const OpButtonAction & )>;
 
 } // namespace OpButton

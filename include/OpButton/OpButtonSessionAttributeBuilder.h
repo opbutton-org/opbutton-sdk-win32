@@ -3,19 +3,22 @@
 #include "OpButton/OpButtonJson.h"
 #include "OpButton/OpButtonValueProvider.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonSessionAttributeBuilder
+    {
+    public:
+        OpButtonSessionAttributeBuilder();
+        ~OpButtonSessionAttributeBuilder();
+        OpButtonSessionAttributeBuilder & put( const OpButtonString & _key, const OpButtonJson & _value );
+        OpButtonSessionAttributeBuilder & putProvider( const OpButtonString & _key, OpButtonValueProvider * _provider );
 
-class OpButtonSessionAttributeBuilder {
-public:
-    OpButtonSessionAttributeBuilder& put(const OpButtonString& key, const OpButtonJson& value);
-    OpButtonSessionAttributeBuilder& putProvider(const OpButtonString& key, OpButtonValueProvider* provider);
+        const OpButtonMap<OpButtonString, OpButtonJson> & staticAttributes() const;
+        const OpButtonMap<OpButtonString, OpButtonValueProvider *> & dynamicAttributes() const;
 
-    const OpButtonMap<OpButtonString, OpButtonJson>& staticAttributes() const;
-    const OpButtonMap<OpButtonString, OpButtonValueProvider*>& dynamicAttributes() const;
-
-private:
-    OpButtonMap<OpButtonString, OpButtonJson> m_staticAttributes;
-    OpButtonMap<OpButtonString, OpButtonValueProvider*> m_dynamicAttributes;
-};
+    private:
+        OpButtonMap<OpButtonString, OpButtonJson> m_staticAttributes;
+        OpButtonMap<OpButtonString, OpButtonValueProvider *> m_dynamicAttributes;
+    };
 
 } // namespace OpButton

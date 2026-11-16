@@ -1,20 +1,22 @@
 #pragma once
 
 #include "OpButton/OpButtonWidget.h"
-#include "OpButton/OpButtonWidgetCallback.h"
 #include "OpButton/OpButtonWidgetActions.h"
+#include "OpButton/OpButtonWidgetCallback.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonSwitch : public OpButtonWidget
+    {
+    public:
+        OpButtonSwitch( OpButtonUI & _ui, const OpButtonString & _label );
+        ~OpButtonSwitch() override;
 
-class OpButtonSwitch : public OpButtonWidget {
-public:
-    OpButtonSwitch(OpButtonUI& ui, const OpButtonString& label);
+        OpButtonSwitch & defaultValue( bool _v );
 
-    OpButtonSwitch& defaultValue(bool v);
-
-    OpButtonSwitch& onChange(OpButtonWidgetCallback* callback);
-    OpButtonSwitch& onChange(OpButtonWidgetCallbackFunc callback);
-    OpButtonSwitch& onChange(OpButtonFunction<void(const OpButtonSwitchAction&)> callback);
-};
+        OpButtonSwitch & onChange( OpButtonWidgetCallback * _callback );
+        OpButtonSwitch & onChange( OpButtonWidgetCallbackFunc _callback );
+        OpButtonSwitch & onChange( OpButtonFunction<void( const OpButtonSwitchAction & )> _callback );
+    };
 
 } // namespace OpButton

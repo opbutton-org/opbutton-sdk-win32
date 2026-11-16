@@ -1,0 +1,27 @@
+BasedOnStyle: Microsoft
+Language: Cpp
+ColumnLimit: 0
+IndentWidth: 4
+NamespaceIndentation: All
+AccessModifierOffset: -4
+BreakBeforeBraces: Allman
+BreakInheritanceList: BeforeColon
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+SpaceBeforeParens: Never
+SpaceAfterTemplateKeyword: false
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: true
+  InEmptyParentheses: false
+  Other: true
+PointerAlignment: Middle
+ReferenceAlignment: Middle
+DerivePointerAlignment: false
+InsertBraces: true
+SortIncludes: Never
+SeparateDefinitionBlocks: Always

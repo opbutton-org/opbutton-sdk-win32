@@ -1,33 +1,78 @@
 #include "OpButton/OpButtonTab.h"
 #include "OpButton/OpButtonUI.h"
 
-namespace OpButton {
+namespace OpButton
+{
 
-OpButtonTab::OpButtonTab(OpButtonUI& ui, const OpButtonString& title)
-    : m_ui(ui)
-    , m_title(title)
-    , m_internalId(ui.nextId())
-    , m_id(OpButtonString("tab-") + opbuttonToString(m_internalId)) {
-}
-
-OpButtonLayout& OpButtonTab::vertical() {
-    m_layout = std::make_unique<OpButtonLayout>(m_ui, OpButtonLayout::Direction::VERTICAL);
-    return *m_layout;
-}
-
-OpButtonLayout& OpButtonTab::horizontal() {
-    m_layout = std::make_unique<OpButtonLayout>(m_ui, OpButtonLayout::Direction::HORIZONTAL);
-    return *m_layout;
-}
-
-OpButtonJson OpButtonTab::toJson() const {
-    OpButtonJson json = OpButtonJson::object();
-    json.put("id", OpButtonJson(m_internalId));
-    json.put("title", OpButtonJson(m_title));
-    if (m_layout) {
-        json.put("layout", m_layout->toJson());
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonTab::OpButtonTab( OpButtonUI & _ui, const OpButtonString & _title )
+        : m_ui( _ui )
+        , m_title( _title )
+        , m_internalId( _ui.nextId() )
+        , m_id( OpButtonString( "tab-" ) + opbuttonToString( m_internalId ) )
+    {
     }
-    return json;
-}
 
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLayout & OpButtonTab::vertical()
+    {
+        m_layout = OpButtonIntrusivePtr<OpButtonLayout>( new OpButtonLayout( m_ui, OpButtonLayout::Direction::VERTICAL ) );
+        return *m_layout;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLayout & OpButtonTab::horizontal()
+    {
+        m_layout = OpButtonIntrusivePtr<OpButtonLayout>( new OpButtonLayout( m_ui, OpButtonLayout::Direction::HORIZONTAL ) );
+        return *m_layout;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonJson OpButtonTab::toJson() const
+    {
+        OpButtonJson json = OpButtonJson::object();
+        json.put( "id", OpButtonJson( m_internalId ) );
+        json.put( "title", OpButtonJson( m_title ) );
+        if( m_layout != nullptr )
+        {
+            json.put( "layout", m_layout->toJson() );
+        }
+        return json;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonTab & OpButtonTab::setId( const OpButtonString & _id )
+    {
+        m_id = _id;
+        return *this;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    const OpButtonString & OpButtonTab::title() const
+    {
+        return m_title;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    const OpButtonString & OpButtonTab::id() const
+    {
+        return m_id;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    int OpButtonTab::internalId() const
+    {
+        return m_internalId;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    bool OpButtonTab::hasLayout() const
+    {
+        return m_layout != nullptr;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonTab::~OpButtonTab()
+    {
+    }
 } // namespace OpButton

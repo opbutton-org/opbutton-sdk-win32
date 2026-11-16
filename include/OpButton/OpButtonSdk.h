@@ -1,70 +1,67 @@
 #pragma once
 
-#include "OpButton/OpButtonConfig.h"
-#include "OpButton/OpButtonSessionStatus.h"
-#include "OpButton/OpButtonLogLevel.h"
-#include "OpButton/OpButtonLogEntry.h"
-#include "OpButton/OpButtonJson.h"
-#include "OpButton/OpButtonUI.h"
-#include "OpButton/OpButtonMetrics.h"
 #include "OpButton/OpButtonActionListener.h"
-#include "OpButton/OpButtonSessionListener.h"
+#include "OpButton/OpButtonConfig.h"
+#include "OpButton/OpButtonJson.h"
+#include "OpButton/OpButtonLogEntry.h"
+#include "OpButton/OpButtonLogLevel.h"
+#include "OpButton/OpButtonMetrics.h"
 #include "OpButton/OpButtonScreenCaptureProvider.h"
+#include "OpButton/OpButtonSessionListener.h"
+#include "OpButton/OpButtonSessionStatus.h"
+#include "OpButton/OpButtonUI.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonSdk
+    {
+    public:
+        ~OpButtonSdk();
+        static constexpr const char * VERSION = "1.0.38";
 
-class OpButtonSdk {
-public:
-    static constexpr const char* VERSION = "1.0.38";
+        static void initialize( const OpButtonConfig & _config );
+        static bool isInitialized();
+        static OpButtonSessionStatus status();
 
-    static void initialize(const OpButtonConfig& config);
-    static bool isInitialized();
-    static OpButtonSessionStatus status();
+        static void addActionListener( OpButtonActionListener * _listener );
+        static void removeActionListener( OpButtonActionListener * _listener );
+        static void addSessionListener( OpButtonSessionListener * _listener );
+        static void removeSessionListener( OpButtonSessionListener * _listener );
 
-    static void addActionListener(OpButtonActionListener* listener);
-    static void removeActionListener(OpButtonActionListener* listener);
-    static void addSessionListener(OpButtonSessionListener* listener);
-    static void removeSessionListener(OpButtonSessionListener* listener);
+        static OpButtonUI & getUI();
+        static OpButtonMetrics & getMetrics();
 
-    static OpButtonUI& getUI();
-    static OpButtonMetrics& getMetrics();
+        static void setScreenCaptureProvider( OpButtonScreenCaptureProvider * _provider );
 
-    static void setScreenCaptureProvider(OpButtonScreenCaptureProvider* provider);
+        static void connect();
+        static void disconnect();
 
-    static void connect();
-    static void disconnect();
+        // Call from your main loop to poll value providers and dispatch queued
+        // callbacks
+        static void update();
 
-    // Call from your main loop to poll value providers and dispatch queued callbacks
-    static void update();
+        static void log( OpButtonLogLevel _level, const OpButtonString & _message );
+        static void log( OpButtonLogLevel _level, const OpButtonString & _message, const OpButtonString & _category, const OpButtonString & _thread = OpButtonString() );
+        static void log( OpButtonLogLevel _level, const OpButtonString & _message, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata );
+        static void log( OpButtonLogLevel _level, const OpButtonString & _message, const OpButtonString & _category, const OpButtonString & _thread, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata );
+        static void log( const OpButtonLogEntry & _entry );
 
-    static void log(OpButtonLogLevel level, const OpButtonString& message);
-    static void log(OpButtonLogLevel level, const OpButtonString& message,
-                    const OpButtonString& category, const OpButtonString& thread = OpButtonString());
-    static void log(OpButtonLogLevel level, const OpButtonString& message,
-                    const OpButtonMap<OpButtonString, OpButtonJson>& metadata);
-    static void log(OpButtonLogLevel level, const OpButtonString& message,
-                    const OpButtonString& category, const OpButtonString& thread,
-                    const OpButtonMap<OpButtonString, OpButtonJson>& metadata);
-    static void log(const OpButtonLogEntry& entry);
+        static void event( const OpButtonString & _message );
+        static void event( const OpButtonString & _message, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata );
+        static void event( const OpButtonString & _message, const OpButtonString & _category, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata );
 
-    static void event(const OpButtonString& message);
-    static void event(const OpButtonString& message, const OpButtonMap<OpButtonString, OpButtonJson>& metadata);
-    static void event(const OpButtonString& message, const OpButtonString& category,
-                      const OpButtonMap<OpButtonString, OpButtonJson>& metadata);
+        static void revenue( const OpButtonString & _message );
+        static void revenue( const OpButtonString & _message, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata );
+        static void revenue( const OpButtonString & _message, const OpButtonString & _category, const OpButtonMap<OpButtonString, OpButtonJson> & _metadata );
 
-    static void revenue(const OpButtonString& message);
-    static void revenue(const OpButtonString& message, const OpButtonMap<OpButtonString, OpButtonJson>& metadata);
-    static void revenue(const OpButtonString& message, const OpButtonString& category,
-                        const OpButtonMap<OpButtonString, OpButtonJson>& metadata);
+        static void changeScreen( const OpButtonString & _screenType, const OpButtonString & _screenName );
 
-    static void changeScreen(const OpButtonString& screenType, const OpButtonString& screenName);
+        static void acknowledgeAction( const OpButtonString & _actionId, const OpButtonJson & _ackPayload = OpButtonJson() );
 
-    static void acknowledgeAction(const OpButtonString& actionId, const OpButtonJson& ackPayload = OpButtonJson());
+        static void shutdown();
 
-    static void shutdown();
-
-private:
-    OpButtonSdk() = delete;
-};
+    private:
+        OpButtonSdk();
+    };
 
 } // namespace OpButton

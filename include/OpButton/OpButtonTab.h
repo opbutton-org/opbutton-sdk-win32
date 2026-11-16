@@ -1,34 +1,36 @@
 #pragma once
 
-#include "OpButton/OpButtonLayout.h"
 #include "OpButton/OpButtonJson.h"
+#include "OpButton/OpButtonLayout.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonUI;
 
-class OpButtonUI;
+    class OpButtonTab : public OpButtonRefCounted
+    {
+    public:
+        OpButtonTab( OpButtonUI & _ui, const OpButtonString & _title );
+        ~OpButtonTab() override;
 
-class OpButtonTab {
-public:
-    OpButtonTab(OpButtonUI& ui, const OpButtonString& title);
+        OpButtonTab & setId( const OpButtonString & _id );
 
-    OpButtonTab& setId(const OpButtonString& id) { m_id = id; return *this; }
+        OpButtonLayout & vertical();
+        OpButtonLayout & horizontal();
 
-    OpButtonLayout& vertical();
-    OpButtonLayout& horizontal();
+        const OpButtonString & title() const;
+        const OpButtonString & id() const;
+        int internalId() const;
+        bool hasLayout() const;
 
-    const OpButtonString& title() const { return m_title; }
-    const OpButtonString& id() const { return m_id; }
-    int internalId() const { return m_internalId; }
-    bool hasLayout() const { return m_layout != nullptr; }
+        OpButtonJson toJson() const;
 
-    OpButtonJson toJson() const;
-
-private:
-    OpButtonUI& m_ui;
-    OpButtonString m_title;
-    OpButtonString m_id;
-    int m_internalId;
-    OpButtonUniquePtr<OpButtonLayout> m_layout;
-};
+    private:
+        OpButtonUI & m_ui;
+        OpButtonString m_title;
+        int m_internalId;
+        OpButtonString m_id;
+        OpButtonIntrusivePtr<OpButtonLayout> m_layout;
+    };
 
 } // namespace OpButton

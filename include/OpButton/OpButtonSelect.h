@@ -1,21 +1,23 @@
 #pragma once
 
 #include "OpButton/OpButtonWidget.h"
-#include "OpButton/OpButtonWidgetCallback.h"
 #include "OpButton/OpButtonWidgetActions.h"
+#include "OpButton/OpButtonWidgetCallback.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonSelect : public OpButtonWidget
+    {
+    public:
+        OpButtonSelect( OpButtonUI & _ui, const OpButtonString & _label );
+        ~OpButtonSelect() override;
 
-class OpButtonSelect : public OpButtonWidget {
-public:
-    OpButtonSelect(OpButtonUI& ui, const OpButtonString& label);
+        OpButtonSelect & options( const OpButtonVector<OpButtonPair<OpButtonString, OpButtonString>> & _opts );
+        OpButtonSelect & defaultValue( const OpButtonString & _v );
 
-    OpButtonSelect& options(const OpButtonVector<OpButtonPair<OpButtonString, OpButtonString>>& opts);
-    OpButtonSelect& defaultValue(const OpButtonString& v);
-
-    OpButtonSelect& onChange(OpButtonWidgetCallback* callback);
-    OpButtonSelect& onChange(OpButtonWidgetCallbackFunc callback);
-    OpButtonSelect& onChange(OpButtonFunction<void(const OpButtonSelectAction&)> callback);
-};
+        OpButtonSelect & onChange( OpButtonWidgetCallback * _callback );
+        OpButtonSelect & onChange( OpButtonWidgetCallbackFunc _callback );
+        OpButtonSelect & onChange( OpButtonFunction<void( const OpButtonSelectAction & )> _callback );
+    };
 
 } // namespace OpButton

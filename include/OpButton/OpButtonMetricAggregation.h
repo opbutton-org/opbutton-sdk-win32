@@ -1,13 +1,14 @@
 #pragma once
 
-namespace OpButton {
+namespace OpButton
+{
+    enum class OpButtonMetricAggregation
+    {
+        GAUGE,
+        COUNTER,
+        RATE
+    };
 
-enum class OpButtonMetricAggregation {
-    GAUGE,
-    COUNTER,
-    RATE
-};
-
-const char* opbuttonMetricAggregationKey(OpButtonMetricAggregation a);
+    const char * opbuttonMetricAggregationKey( OpButtonMetricAggregation _a );
 
 } // namespace OpButton

@@ -1,21 +1,23 @@
 #pragma once
 
 #include "OpButton/OpButtonWidget.h"
-#include "OpButton/OpButtonWidgetCallback.h"
 #include "OpButton/OpButtonWidgetActions.h"
+#include "OpButton/OpButtonWidgetCallback.h"
 
-namespace OpButton {
+namespace OpButton
+{
+    class OpButtonTextarea : public OpButtonWidget
+    {
+    public:
+        OpButtonTextarea( OpButtonUI & _ui, const OpButtonString & _label );
+        ~OpButtonTextarea() override;
 
-class OpButtonTextarea : public OpButtonWidget {
-public:
-    OpButtonTextarea(OpButtonUI& ui, const OpButtonString& label);
+        OpButtonTextarea & rows( int _r );
+        OpButtonTextarea & defaultValue( const OpButtonString & _v );
 
-    OpButtonTextarea& rows(int r);
-    OpButtonTextarea& defaultValue(const OpButtonString& v);
-
-    OpButtonTextarea& onSubmit(OpButtonWidgetCallback* callback);
-    OpButtonTextarea& onSubmit(OpButtonWidgetCallbackFunc callback);
-    OpButtonTextarea& onSubmit(OpButtonFunction<void(const OpButtonTextareaAction&)> callback);
-};
+        OpButtonTextarea & onSubmit( OpButtonWidgetCallback * _callback );
+        OpButtonTextarea & onSubmit( OpButtonWidgetCallbackFunc _callback );
+        OpButtonTextarea & onSubmit( OpButtonFunction<void( const OpButtonTextareaAction & )> _callback );
+    };
 
 } // namespace OpButton

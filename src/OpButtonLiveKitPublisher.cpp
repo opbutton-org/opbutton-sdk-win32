@@ -1,105 +1,143 @@
 #include "OpButtonLiveKitPublisher.h"
-#include "OpButton/OpButtonLog.h"
 #include "OpButton/OpButtonException.h"
+#include "OpButton/OpButtonLog.h"
 
-namespace OpButton {
+#include <livekit/livekit.h>
+#include <memory>
+#include <mutex>
 
-static bool s_livekitInitialized = false;
-
-static void ensureLiveKitInitialized() {
-    if (!s_livekitInitialized) {
-        livekit::initialize(livekit::LogLevel::Warn);
-        s_livekitInitialized = true;
-    }
-}
-
-OpButtonLiveKitPublisher::OpButtonLiveKitPublisher()
-    : m_connected(false) {
-}
-
-OpButtonLiveKitPublisher::~OpButtonLiveKitPublisher() {
-    stop();
-}
-
-void OpButtonLiveKitPublisher::start(const OpButtonString& serverUrl,
-                                   const OpButtonString& participantToken,
-                                   int width, int height) {
-    stop();
-
-    ensureLiveKitInitialized();
-
-    std::string url(serverUrl.begin(), serverUrl.end());
-    std::string token(participantToken.begin(), participantToken.end());
-
-    m_room = std::make_unique<livekit::Room>();
-
-    livekit::RoomOptions opts;
-    opts.auto_subscribe = false;
-    opts.dynacast = false;
-
-    bool connected = m_room->Connect(url, token, opts);
-    if (!connected) {
-        m_room.reset();
-        throw OpButtonException("Failed to connect to LiveKit room");
+namespace OpButton
+{
+    namespace Detail
+    {
+        static std::once_flag s_liveKitInitialize;
     }
 
-    m_videoSource = std::make_shared<livekit::VideoSource>(width, height);
+    // LiveKit's publication API requires shared_ptr for its source and track.
+    // These foreign ownership types remain inside the adapter.
+    class OpButtonLiveKitPublisher::State : public OpButtonRefCounted
+    {
+    public:
+        State();
+        ~State() override;
 
-    auto* participant = m_room->localParticipant();
-    if (!participant) {
-        m_room.reset();
-        m_videoSource.reset();
-        throw OpButtonException("No local participant after LiveKit connect");
+    public:
+        livekit::Room m_room;
+        std::shared_ptr<livekit::VideoSource> m_videoSource;
+        std::shared_ptr<livekit::LocalVideoTrack> m_videoTrack;
+    };
+
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLiveKitPublisher::State::State()
+    {
     }
 
-    m_videoTrack = participant->publishVideoTrack(
-        "opbutton-app-screen",
-        m_videoSource,
-        livekit::TrackSource::SOURCE_SCREENSHARE);
-
-    if (!m_videoTrack) {
-        m_room.reset();
-        m_videoSource.reset();
-        throw OpButtonException("Failed to publish video track to LiveKit");
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLiveKitPublisher::State::~State()
+    {
     }
 
-    m_connected = true;
-    OpButtonLog::i("LiveKit publisher started (%dx%d)", width, height);
-}
-
-void OpButtonLiveKitPublisher::pushFrame(const uint8_t* argbData, int width, int height) {
-    if (!m_connected || !m_videoSource) {
-        return;
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLiveKitPublisher::OpButtonLiveKitPublisher()
+    {
     }
 
-    size_t dataSize = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
-    std::vector<uint8_t> frameData(argbData, argbData + dataSize);
+    //////////////////////////////////////////////////////////////////////////
+    OpButtonLiveKitPublisher::~OpButtonLiveKitPublisher()
+    {
+        this->stop();
+    }
 
-    livekit::VideoFrame frame(width, height, livekit::VideoBufferType::ARGB, std::move(frameData));
-    m_videoSource->captureFrame(frame);
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonLiveKitPublisher::start( const OpButtonString & _serverUrl, const OpButtonString & _participantToken, int _width, int _height )
+    {
+        this->stop();
+        std::call_once( Detail::s_liveKitInitialize, []()
+                        { livekit::initialize( livekit::LogLevel::Warn ); } );
 
-void OpButtonLiveKitPublisher::updateResolution(int width, int height) {
-    (void)width;
-    (void)height;
-}
+        std::string url( _serverUrl.begin(), _serverUrl.end() );
+        std::string token( _participantToken.begin(), _participantToken.end() );
+        OpButtonIntrusivePtr<State> state( new State() );
+        livekit::RoomOptions options;
+        options.auto_subscribe = false;
+        options.dynacast = false;
 
-void OpButtonLiveKitPublisher::stop() {
-    if (m_videoTrack) {
-        if (m_room && m_room->localParticipant()) {
-            std::string sid(m_videoTrack->sid());
-            m_room->localParticipant()->unpublishTrack(sid);
+        bool connected = state->m_room.Connect( url, token, options );
+        if( connected == false )
+        {
+            throw OpButtonException( "Failed to connect to LiveKit room" );
         }
-        m_videoTrack.reset();
+
+        livekit::LocalParticipant * participant = state->m_room.localParticipant();
+        if( participant == nullptr )
+        {
+            throw OpButtonException( "No local participant after LiveKit connect" );
+        }
+
+        state->m_videoSource = std::allocate_shared<livekit::VideoSource>( OpButtonStlAllocator<livekit::VideoSource>(), _width, _height );
+        state->m_videoTrack = participant->publishVideoTrack( "opbutton-app-screen", state->m_videoSource, livekit::TrackSource::SOURCE_SCREENSHARE );
+        if( state->m_videoTrack == nullptr )
+        {
+            throw OpButtonException( "Failed to publish video track to LiveKit" );
+        }
+
+        m_state = std::move( state );
+        OpButtonLog::i( "LiveKit publisher started (%dx%d)", _width, _height );
     }
 
-    m_videoSource.reset();
-    m_room.reset();
-    m_connected = false;
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonLiveKitPublisher::pushFrame( const uint8_t * _argbData, int _width, int _height )
+    {
+        if( m_state == nullptr )
+        {
+            return;
+        }
+        size_t dataSize = static_cast<size_t>( _width ) * static_cast<size_t>( _height ) * 4;
+        std::vector<uint8_t> frameData( _argbData, _argbData + dataSize );
+        livekit::VideoFrame frame( _width, _height, livekit::VideoBufferType::ARGB, std::move( frameData ) );
+        m_state->m_videoSource->captureFrame( frame );
+    }
 
-bool OpButtonLiveKitPublisher::isConnected() const {
-    return m_connected;
-}
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonLiveKitPublisher::updateResolution( int _width, int _height )
+    {
+        (void)_width;
+        (void)_height;
+    }
 
+    //////////////////////////////////////////////////////////////////////////
+    void OpButtonLiveKitPublisher::stop()
+    {
+        OpButtonIntrusivePtr<State> state;
+        state.swap( m_state );
+        if( state == nullptr )
+        {
+            return;
+        }
+        // The Room destructor disconnects even if explicit unpublication fails.
+        try
+        {
+            livekit::LocalParticipant * participant = state->m_room.localParticipant();
+            if( participant == nullptr )
+            {
+                return;
+            }
+            if( state->m_videoTrack == nullptr )
+            {
+                return;
+            }
+            std::string sid( state->m_videoTrack->sid() );
+            participant->unpublishTrack( sid );
+        }
+        catch( const std::exception & _exception )
+        {
+            OpButtonLog::e( "Failed to unpublish LiveKit video track: %s", _exception.what() );
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    bool OpButtonLiveKitPublisher::isConnected() const
+    {
+        return m_state != nullptr;
+    }
 } // namespace OpButton
