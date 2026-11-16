@@ -13,11 +13,10 @@ file(GLOB_RECURSE OPBUTTON_SOURCES "src/*.cpp" "src/*.h")
 
 # ---- LiveKit availability ----
 # LiveKit Rust FFI only supports x64/arm64 on Windows.
+option(OPBUTTON_ENABLE_LIVEKIT "Build LiveKit screen streaming support" ON)
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(OPBUTTON_ENABLE_LIVEKIT OFF)
+    set(OPBUTTON_ENABLE_LIVEKIT OFF CACHE BOOL "Build LiveKit screen streaming support" FORCE)
     message(STATUS "opbutton: LiveKit disabled (Win32/x86 is not supported by LiveKit Rust FFI)")
-else()
-    set(OPBUTTON_ENABLE_LIVEKIT ON)
 endif()
 
 if(NOT OPBUTTON_ENABLE_LIVEKIT)
@@ -27,7 +26,12 @@ endif()
 add_library(opbutton SHARED ${OPBUTTON_SOURCES} ${OPBUTTON_HEADERS})
 target_include_directories(opbutton PUBLIC include)
 target_include_directories(opbutton PRIVATE src)
-target_link_libraries(opbutton PRIVATE wininet psapi ole32)
+target_link_libraries(opbutton PRIVATE wininet psapi ole32 advapi32)
+if(MSVC)
+    target_compile_options(opbutton PRIVATE /W4 /WX)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(opbutton PRIVATE -Wall -Wextra -Werror)
+endif()
 
 if(NOT OPBUTTON_ENABLE_LIVEKIT)
     target_compile_definitions(opbutton PRIVATE OPBUTTON_NO_LIVEKIT)
@@ -38,8 +42,7 @@ elseif(NOT LIVEKIT_SDK_DIR)
     # ---- LiveKit C++ source ----
     FetchContent_Declare(livekit_src
         GIT_REPOSITORY https://github.com/livekit/client-sdk-cpp.git
-        GIT_TAG v0.3.3
-        GIT_SHALLOW TRUE
+        GIT_TAG 977ae2a8694de349d8760fb4c1a763f9327ae298
     )
     FetchContent_GetProperties(livekit_src)
     if(NOT livekit_src_POPULATED)
@@ -50,8 +53,7 @@ elseif(NOT LIVEKIT_SDK_DIR)
     # ---- LiveKit Rust SDK workspace (proto files + FFI sources) ----
     FetchContent_Declare(livekit_rust
         GIT_REPOSITORY https://github.com/livekit/rust-sdks.git
-        GIT_TAG livekit-ffi/v0.12.52
-        GIT_SHALLOW TRUE
+        GIT_TAG 70acaa40baab966867d8fe99c0fbf193bad0f743
     )
     FetchContent_GetProperties(livekit_rust)
     if(NOT livekit_rust_POPULATED)
@@ -64,8 +66,7 @@ elseif(NOT LIVEKIT_SDK_DIR)
     set(ABSL_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(absl
         GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-        GIT_TAG 20240116.2
-        GIT_SHALLOW TRUE
+        GIT_TAG d7aaad83b488fd62bd51c81ecf16cd938532cc0a
         OVERRIDE_FIND_PACKAGE
     )
 
@@ -81,8 +82,7 @@ elseif(NOT LIVEKIT_SDK_DIR)
     set(utf8_range_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(Protobuf
         GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-        GIT_TAG v25.3
-        GIT_SHALLOW TRUE
+        GIT_TAG 4a2aef570deb2bfb8927426558701e8bfc26f2a4
     )
     FetchContent_MakeAvailable(absl Protobuf)
 
@@ -93,8 +93,7 @@ elseif(NOT LIVEKIT_SDK_DIR)
     set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.15.1
-        GIT_SHALLOW TRUE
+        GIT_TAG f355b3d58f7067eee1706ff3c801c2361011f3d5
     )
     FetchContent_MakeAvailable(spdlog)
 

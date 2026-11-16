@@ -10,7 +10,7 @@ namespace OpButton
     class OpButtonHttpClient
     {
     public:
-        OpButtonHttpClient( const OpButtonString & _baseUrl, const OpButtonString & _apiToken );
+        OpButtonHttpClient( const OpButtonString & _baseUrl, const OpButtonString & _apiToken, const OpButtonString & _deviceSecret = OpButtonString(), bool _allowInsecureLocalhost = false );
         ~OpButtonHttpClient();
 
     public:
@@ -27,7 +27,9 @@ namespace OpButton
         OpButtonJson getLivePublisherState( const OpButtonString & _sessionToken );
 
     private:
-        OpButtonJson executeRequest_( const OpButtonString & _method, const OpButtonString & _path, const OpButtonString & _headerName, const OpButtonString & _headerValue, const OpButtonString & _body );
+        OpButtonJson executeRequest_( const OpButtonString & _method, const OpButtonString & _path, const OpButtonString & _headerName, const OpButtonString & _headerValue, const OpButtonString & _body, const OpButtonString & _secondHeaderName = OpButtonString(), const OpButtonString & _secondHeaderValue = OpButtonString() );
+        void ensureDeviceSecret_( const OpButtonString & _deviceId );
+        void persistDeviceSecret_( const OpButtonString & _deviceId );
 
     private:
         OpButtonString m_host;
@@ -36,6 +38,9 @@ namespace OpButton
         bool m_secure;
         OpButtonString m_apiToken;
         OpButtonString m_runId;
+        OpButtonString m_deviceSecret;
+        OpButtonString m_deviceCredentialScope;
+        OpButtonString m_deviceCredentialTarget;
 
         void * m_hSession; // HINTERNET
         void * m_hConnect; // HINTERNET

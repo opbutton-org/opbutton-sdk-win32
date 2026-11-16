@@ -23,6 +23,8 @@ namespace OpButton
         const OpButtonString & apiToken() const;
         const OpButtonString & deviceId() const;
         const OpButtonString & deviceName() const;
+        const OpButtonString & deviceSecret() const;
+        bool allowInsecureLocalhost() const;
         int64_t pollIntervalMs() const;
         int64_t actionPollIntervalMs() const;
         bool autoConnect() const;
@@ -41,9 +43,11 @@ namespace OpButton
         OpButtonString m_apiToken;
         OpButtonString m_deviceId;
         OpButtonString m_deviceName;
+        OpButtonString m_deviceSecret;
         int64_t m_pollIntervalMs = 10000;
         int64_t m_actionPollIntervalMs = 2000;
         bool m_autoConnect = true;
+        bool m_allowInsecureLocalhost = false;
         OpButtonLoggerListener * m_loggerListener = nullptr;
         OpButtonSessionListener * m_sessionListener = nullptr;
         OpButtonActionListener * m_actionListener = nullptr;

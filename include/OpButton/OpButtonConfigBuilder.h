@@ -13,6 +13,8 @@ namespace OpButton
     public:
         Builder & setDeviceId( const OpButtonString & _v );
         Builder & setDeviceName( const OpButtonString & _v );
+        Builder & setDeviceSecret( const OpButtonString & _v );
+        Builder & setAllowInsecureLocalhost( bool _v );
         Builder & setPollIntervalMs( int64_t _v );
         Builder & setActionPollIntervalMs( int64_t _v );
         Builder & setAutoConnect( bool _v );
@@ -30,9 +32,11 @@ namespace OpButton
         OpButtonString m_apiToken;
         OpButtonString m_deviceId;
         OpButtonString m_deviceName;
+        OpButtonString m_deviceSecret;
         int64_t m_pollIntervalMs = 10000;
         int64_t m_actionPollIntervalMs = 2000;
         bool m_autoConnect = true;
+        bool m_allowInsecureLocalhost = false;
         OpButtonLoggerListener * m_loggerListener = nullptr;
         OpButtonSessionListener * m_sessionListener = nullptr;
         OpButtonActionListener * m_actionListener = nullptr;

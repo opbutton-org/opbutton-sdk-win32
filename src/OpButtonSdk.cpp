@@ -466,7 +466,7 @@ namespace OpButton
     //////////////////////////////////////////////////////////////////////////
     OpButtonInstance::OpButtonInstance( const OpButtonConfig & _config )
         : m_config( _config )
-        , m_httpClient( _config.baseUrl(), _config.apiToken() )
+        , m_httpClient( _config.baseUrl(), _config.apiToken(), _config.deviceSecret(), _config.allowInsecureLocalhost() )
         , m_liveManager( m_httpClient )
         , m_currentActionPollIntervalMs( _config.actionPollIntervalMs() )
     {
