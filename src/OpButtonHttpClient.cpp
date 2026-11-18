@@ -206,8 +206,9 @@ namespace OpButton
         }
 
         // Add content type header
+        DWORD nullTerminatedHeaderLength = MAXDWORD;
         OpButtonString contentTypeHeader = "Content-Type: application/json; charset=utf-8\r\n";
-        if( HttpAddRequestHeadersA( hRequest, contentTypeHeader.c_str(), -1, HTTP_ADDREQ_FLAG_ADD ) == FALSE )
+        if( HttpAddRequestHeadersA( hRequest, contentTypeHeader.c_str(), nullTerminatedHeaderLength, HTTP_ADDREQ_FLAG_ADD ) == FALSE )
         {
             InternetCloseHandle( hRequest );
             throw OpButtonException( "Failed to add HTTP content type header" );
@@ -222,7 +223,7 @@ namespace OpButton
                 throw OpButtonException( "Invalid HTTP header value" );
             }
             OpButtonString customHeader = _headerName + OpButtonString( ": " ) + _headerValue + OpButtonString( "\r\n" );
-            if( HttpAddRequestHeadersA( hRequest, customHeader.c_str(), -1, HTTP_ADDREQ_FLAG_ADD ) == FALSE )
+            if( HttpAddRequestHeadersA( hRequest, customHeader.c_str(), nullTerminatedHeaderLength, HTTP_ADDREQ_FLAG_ADD ) == FALSE )
             {
                 InternetCloseHandle( hRequest );
                 throw OpButtonException( "Failed to add HTTP authentication header" );
@@ -236,7 +237,7 @@ namespace OpButton
                 throw OpButtonException( "Invalid HTTP header value" );
             }
             OpButtonString customHeader = _secondHeaderName + OpButtonString( ": " ) + _secondHeaderValue + OpButtonString( "\r\n" );
-            if( HttpAddRequestHeadersA( hRequest, customHeader.c_str(), -1, HTTP_ADDREQ_FLAG_ADD ) == FALSE )
+            if( HttpAddRequestHeadersA( hRequest, customHeader.c_str(), nullTerminatedHeaderLength, HTTP_ADDREQ_FLAG_ADD ) == FALSE )
             {
                 InternetCloseHandle( hRequest );
                 throw OpButtonException( "Failed to add HTTP device header" );
